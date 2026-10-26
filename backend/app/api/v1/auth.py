@@ -4,9 +4,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.security import hash_password
+from app.core.security import (
+    create_access_token,
+    hash_password,
+    verify_password,
+)
 from app.models.user import User
-from app.schemas.user import UserCreate, UserPublic
+from app.schemas.user import (
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserPublic,
+)
 
 router = APIRouter(
     prefix='/auth',
@@ -53,3 +62,44 @@ async def register(
     await session.refresh(user)
 
     return user
+
+
+@router.post(
+    '/login',
+    response_model=TokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def login(
+    data: UserLogin,
+    session: AsyncSession = Depends(get_session),
+):
+    email = str(data.email).lower()
+
+    result = await session.execute(select(User).where(User.email == email))
+
+    user = result.scalar_one_or_none()
+
+    if user is None or not verify_password(
+        data.password,
+        user.hashed_password,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='E-mail ou senha inválidos',
+            headers={'WWW-Authenticate': 'Bearer'},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Usuário inativo',
+        )
+
+    access_token = create_access_token(
+        subject=str(user.id),
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        token_type='bearer',
+    )

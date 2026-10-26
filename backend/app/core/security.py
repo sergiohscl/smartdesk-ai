@@ -5,7 +5,9 @@ import jwt
 from jwt import InvalidTokenError
 from pwdlib import PasswordHash
 
-from app.core.config import settings
+from app.core.settings import get_settings
+
+settings = get_settings()
 
 password_hash = PasswordHash.recommended()
 
