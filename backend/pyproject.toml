@@ -1,25 +1,77 @@
 [project]
 name = "smartdesk-ai-backend"
 version = "0.1.0"
-description = ""
+description = "Backend do SmartDesk AI desenvolvido com FastAPI"
 authors = [
-    {name = "sergiohscl",email = "sergiohscl2@gmail.com"}
+    { name = "sergiohscl", email = "sergiohscl2@gmail.com" }
 ]
-requires-python = "^3.13"
+requires-python = ">=3.13,<4.0"
 dependencies = [
-    "fastapi (>=0.162.0,<0.163.0)",
+    "fastapi[standard] (>=0.162.0,<0.163.0)",
     "uvicorn[standard] (>=0.54.0,<0.55.0)",
     "pydantic-settings (>=2.16.1,<3.0.0)"
 ]
-
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poetry]
+package-mode = false
+
 [dependency-groups]
 dev = [
     "pytest (>=9.1.1,<10.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
-    "ruff (>=0.17.2,<0.18.0)"
+    "ruff (>=0.17.2,<0.18.0)",
+    "taskipy (>=1.14.1,<2.0.0)"
 ]
+
+# ==========================================
+# RUFF - LINT E FORMATAÇÃO
+# ==========================================
+
+[tool.ruff]
+line-length = 79
+target-version = "py313"
+
+extend-exclude = [
+    ".venv",
+    "alembic",
+    "migrations",
+]
+
+[tool.ruff.lint]
+preview = true
+
+select = [
+    "I",   # Organização de imports (isort)
+    "F",   # Pyflakes
+    "E",   # Erros de estilo (pycodestyle)
+    "W",   # Avisos de estilo
+    "PL",  # Regras do Pylint
+    "PT",  # Boas práticas do Pytest
+]
+
+ignore = [
+    "PLR2004",
+    "PLR0917",
+    "PLR0913",
+]
+
+[tool.ruff.format]
+preview = true
+quote-style = "single"
+
+# ==========================================
+# TASKIPY - AUTOMAÇÃO DE COMANDOS
+# ==========================================
+
+[tool.taskipy.tasks]
+lint = "ruff check ."
+pre_format = "ruff check . --fix"
+format = "ruff format ."
+format_check = "ruff format --check ."
+run = "python -m fastapi dev app/main.py"
+test = "python -m pytest -v"
+check = "ruff check . && ruff format --check . && python -m pytest -v"
