@@ -6,14 +6,14 @@ import {
   useState,
 } from "react";
 
-import { api } from "@/services/api";
 import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 
 import { authToken } from "@/lib/authToken";
 import { authService } from "@/services/authService";
+import { api } from "@/services/api";
 
 import type {
   LoginRequest,
@@ -43,6 +43,8 @@ export function AuthProvider({
   const logout = useCallback(() => {
     authToken.clear();
     setUser(null);
+
+    void queryClient.cancelQueries();
     queryClient.clear();
   }, [queryClient]);
 
@@ -71,21 +73,21 @@ export function AuthProvider({
   );
 
   useEffect(() => {
-  const interceptor = api.interceptors.response.use(
-    (response) => response,
-    (error: unknown) => {
-      if (
-        axios.isAxiosError(error) &&
-        error.response?.status === 401 &&
-        authToken.get() !== null &&
-        error.config?.headers?.has("Authorization")
-      ) {
-        logout();
-      }
+    const interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error: unknown) => {
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 401 &&
+          authToken.get() !== null &&
+          error.config?.headers?.has("Authorization")
+        ) {
+          logout();
+        }
 
-      return Promise.reject(error);
-    },
-  );
+        return Promise.reject(error);
+      },
+    );
 
     return () => {
       api.interceptors.response.eject(interceptor);
