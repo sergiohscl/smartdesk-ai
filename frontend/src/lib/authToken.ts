@@ -1,19 +1,19 @@
-let accessToken: string | null = null;
+const TOKEN_KEY = "smartdesk_access_token";
 
 export const authToken = {
   get(): string | null {
-    return accessToken;
+    return sessionStorage.getItem(TOKEN_KEY);
   },
 
   set(token: string): void {
-    accessToken = token;
+    sessionStorage.setItem(TOKEN_KEY, token);
   },
 
   clear(): void {
-    accessToken = null;
+    sessionStorage.removeItem(TOKEN_KEY);
   },
 
   isAuthenticated(): boolean {
-    return accessToken !== null;
+    return this.get() !== null;
   },
 };

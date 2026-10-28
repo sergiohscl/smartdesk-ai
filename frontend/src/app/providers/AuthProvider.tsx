@@ -24,6 +24,7 @@ interface AuthContextType {
   user: UserPublic | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   login: (data: LoginRequest) => Promise<void>;
   logout: () => void;
 }
@@ -39,6 +40,7 @@ export function AuthProvider({
 
   const [user, setUser] = useState<UserPublic | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const logout = useCallback(() => {
     authToken.clear();
@@ -73,6 +75,42 @@ export function AuthProvider({
   );
 
   useEffect(() => {
+    let active = true;
+
+    async function restoreSession() {
+      const token = authToken.get();
+
+      if (!token) {
+        setIsInitializing(false);
+        return;
+      }
+
+      try {
+        const currentUser =
+          await authService.getCurrentUser();
+
+        if (active) {
+          setUser(currentUser);
+        }
+      } catch {
+        if (active) {
+          logout();
+        }
+      } finally {
+        if (active) {
+          setIsInitializing(false);
+        }
+      }
+    }
+
+    void restoreSession();
+
+    return () => {
+      active = false;
+    };
+  }, [logout]);
+
+  useEffect(() => {
     const interceptor = api.interceptors.response.use(
       (response) => response,
       (error: unknown) => {
@@ -100,6 +138,7 @@ export function AuthProvider({
         user,
         isAuthenticated: user !== null,
         isLoading,
+        isInitializing,
         login,
         logout,
       }}
