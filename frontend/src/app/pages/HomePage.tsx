@@ -7,7 +7,6 @@ import {
 } from "@/app/components/ui/card";
 
 import { BrainCircuit, Activity } from "lucide-react";
-import { ApiStatus } from "../components/ApiStatus/ApiStatus";
 
 export function HomePage() {
   return (
@@ -38,10 +37,6 @@ export function HomePage() {
               <h2 className="text-sm font-semibold text-white">
                 Status do Sistema
               </h2>
-            </div>
-
-            <div className="flex justify-center">
-              <ApiStatus />
             </div>
           </div>
         </CardContent>
