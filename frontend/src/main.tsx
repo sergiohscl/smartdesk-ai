@@ -1,12 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "@tanstack/react-router";
 
 import { QueryProvider } from "@/app/providers/QueryProvider";
-import { router } from "@/app/router";
+import { AuthProvider } from "@/app/providers/AuthProvider";
+import { AppRouterProvider } from "@/app/providers/AppRouterProvider";
 
 import "./index.css";
-import { AuthProvider } from "./app/providers/AuthProvider";
 
 ReactDOM.createRoot(
   document.getElementById("root")!,
@@ -14,7 +13,7 @@ ReactDOM.createRoot(
   <React.StrictMode>
     <QueryProvider>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <AppRouterProvider />
       </AuthProvider>
     </QueryProvider>
   </React.StrictMode>,
