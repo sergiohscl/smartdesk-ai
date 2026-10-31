@@ -1,7 +1,10 @@
 import { DashboardLayout } from "@/app/components/DashboardLayout/DashboardLayout";
 
 import { TicketStats } from "@/app/components/TicketStats/TicketStats";
+import { TicketTable } from "@/app/components/TicketTable/TicketTable";
+
 import { mockTicketStats } from "@/data/mockTicketStats";
+import { mockTickets } from "@/data/mockTickets";
 
 export function DashboardPage() {
   return (
@@ -20,6 +23,12 @@ export function DashboardPage() {
         {/* Indicadores de chamados */}
         <TicketStats
           stats={mockTicketStats}
+          isDemo
+        />
+
+        {/* Listagem de chamados */}
+        <TicketTable
+          tickets={mockTickets}
           isDemo
         />
       </div>
