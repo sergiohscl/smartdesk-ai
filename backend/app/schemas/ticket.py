@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.ticket import TicketPriority, TicketStatus
 
@@ -28,6 +28,14 @@ class TicketUpdate(BaseModel):
     )
     status: TicketStatus | None = None
     priority: TicketPriority | None = None
+
+    @model_validator(mode='after')
+    def validate_non_null_fields(self):
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f'O campo {field} não pode ser nulo.')
+
+        return self
 
 
 class TicketPublic(BaseModel):

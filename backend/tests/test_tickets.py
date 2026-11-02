@@ -602,3 +602,239 @@ async def test_get_ticket_invalid_id(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('payload', 'expected'),
+    [
+        (
+            {'status': 'in_progress'},
+            {'status': 'in_progress'},
+        ),
+        (
+            {'priority': 'critical'},
+            {'priority': 'critical'},
+        ),
+        (
+            {
+                'title': 'Novo título',
+                'description': 'Nova descrição do chamado.',
+            },
+            {
+                'title': 'Novo título',
+                'description': 'Nova descrição do chamado.',
+            },
+        ),
+        (
+            {
+                'title': 'Chamado atualizado',
+                'description': 'Descrição atualizada.',
+                'status': 'resolved',
+                'priority': 'low',
+            },
+            {
+                'title': 'Chamado atualizado',
+                'description': 'Descrição atualizada.',
+                'status': 'resolved',
+                'priority': 'low',
+            },
+        ),
+    ],
+)
+async def test_update_ticket_success(
+    client: AsyncClient,
+    mock_session,
+    payload: dict,
+    expected: dict,
+):
+    user = make_user()
+    now = datetime.now(UTC)
+
+    ticket = Ticket(
+        id=1,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.patch(
+        '/api/v1/tickets/1',
+        headers={'Authorization': f'Bearer {token}'},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    for field, value in expected.items():
+        assert data[field] == value
+
+    for field in ('title', 'description', 'status', 'priority'):
+        if field not in payload:
+            original = {
+                'title': 'Computador não liga',
+                'description': 'O computador não inicia.',
+                'status': 'open',
+                'priority': 'high',
+            }
+            assert data[field] == original[field]
+
+    assert data['created_by_id'] == user.id
+
+    mock_session.commit.assert_awaited_once()
+    mock_session.refresh.assert_awaited_once_with(ticket)
+
+
+@pytest.mark.asyncio
+async def test_update_ticket_without_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.patch(
+        '/api/v1/tickets/1',
+        json={'status': 'resolved'},
+    )
+
+    assert response.status_code == 401
+    mock_session.execute.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('ticket_id', [2, 999])
+async def test_update_ticket_not_found_or_other_user(
+    client: AsyncClient,
+    mock_session,
+    ticket_id: int,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.patch(
+        f'/api/v1/tickets/{ticket_id}',
+        headers={'Authorization': f'Bearer {token}'},
+        json={'status': 'resolved'},
+    )
+
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'Chamado não encontrado.'
+
+    query = mock_session.execute.await_args_list[1].args[0]
+    compiled = query.compile()
+
+    assert 'tickets.created_by_id' in str(compiled)
+    assert user.id in compiled.params.values()
+    assert ticket_id in compiled.params.values()
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'payload',
+    [
+        {'title': 'PC'},
+        {'description': 'Erro'},
+        {'status': 'invalid'},
+        {'priority': 'urgent'},
+        {'title': None},
+        {'description': None},
+        {'status': None},
+        {'priority': None},
+        {'title': 123},
+    ],
+)
+async def test_update_ticket_invalid_data(
+    client: AsyncClient,
+    mock_session,
+    payload: dict,
+):
+    user = make_user()
+    mock_authenticated_user(mock_session, user)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.patch(
+        '/api/v1/tickets/1',
+        headers={'Authorization': f'Bearer {token}'},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_ticket_empty_body(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    now = datetime.now(UTC)
+
+    ticket = Ticket(
+        id=1,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.patch(
+        '/api/v1/tickets/1',
+        headers={'Authorization': f'Bearer {token}'},
+        json={},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['title'] == 'Computador não liga'
+
+    mock_session.commit.assert_not_awaited()
+    mock_session.refresh.assert_not_awaited()

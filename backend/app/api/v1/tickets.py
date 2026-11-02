@@ -12,6 +12,7 @@ from app.schemas.ticket import (
     TicketCreate,
     TicketListResponse,
     TicketPublic,
+    TicketUpdate,
 )
 
 router = APIRouter(
@@ -142,5 +143,42 @@ async def get_ticket(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Chamado não encontrado.',
         )
+
+    return ticket
+
+
+@router.patch(
+    '/{ticket_id}',
+    response_model=TicketPublic,
+    status_code=status.HTTP_200_OK,
+)
+async def update_ticket(
+    ticket_id: int,
+    ticket_data: TicketUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Ticket:
+    statement = select(Ticket).where(
+        Ticket.id == ticket_id,
+        Ticket.created_by_id == current_user.id,
+    )
+
+    result = await session.execute(statement)
+    ticket = result.scalar_one_or_none()
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    update_data = ticket_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(ticket, field, value)
+
+    if update_data:
+        await session.commit()
+        await session.refresh(ticket)
 
     return ticket
