@@ -838,3 +838,148 @@ async def test_update_ticket_empty_body(
 
     mock_session.commit.assert_not_awaited()
     mock_session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_ticket_success(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    now = datetime.now(UTC)
+
+    ticket = Ticket(
+        id=1,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.delete(
+        '/api/v1/tickets/1',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 204
+    assert response.content == b''
+
+    assert mock_session.execute.await_count == 2
+
+    query = mock_session.execute.await_args_list[1].args[0]
+    compiled = query.compile()
+
+    assert 'tickets.created_by_id' in str(compiled)
+    assert user.id in compiled.params.values()
+    assert ticket.id in compiled.params.values()
+
+    mock_session.delete.assert_awaited_once_with(ticket)
+    mock_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_ticket_without_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.delete('/api/v1/tickets/1')
+
+    assert response.status_code == 401
+
+    mock_session.execute.assert_not_awaited()
+    mock_session.delete.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('ticket_id', [2, 999])
+async def test_delete_ticket_not_found_or_other_user(
+    client: AsyncClient,
+    mock_session,
+    ticket_id: int,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.delete(
+        f'/api/v1/tickets/{ticket_id}',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 404
+    assert response.json()['detail'] == ('Chamado não encontrado.')
+
+    query = mock_session.execute.await_args_list[1].args[0]
+    compiled = query.compile()
+
+    assert 'tickets.created_by_id' in str(compiled)
+    assert user.id in compiled.params.values()
+    assert ticket_id in compiled.params.values()
+
+    mock_session.delete.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_ticket_invalid_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.delete(
+        '/api/v1/tickets/1',
+        headers={'Authorization': 'Bearer invalid-token'},
+    )
+
+    assert response.status_code == 401
+
+    mock_session.delete.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_ticket_invalid_id(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    mock_authenticated_user(mock_session, user)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.delete(
+        '/api/v1/tickets/abc',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 422
+
+    mock_session.delete.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()

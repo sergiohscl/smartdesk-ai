@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -182,3 +182,33 @@ async def update_ticket(
         await session.refresh(ticket)
 
     return ticket
+
+
+@router.delete(
+    '/{ticket_id}',
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_ticket(
+    ticket_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    result = await session.execute(
+        select(Ticket).where(
+            Ticket.id == ticket_id,
+            Ticket.created_by_id == current_user.id,
+        )
+    )
+
+    ticket = result.scalar_one_or_none()
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    await session.delete(ticket)
+    await session.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
