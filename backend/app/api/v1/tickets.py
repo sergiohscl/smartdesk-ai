@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -117,3 +117,30 @@ async def list_tickets(
         page_size=page_size,
         pages=pages,
     )
+
+
+@router.get(
+    '/{ticket_id}',
+    response_model=TicketPublic,
+    status_code=status.HTTP_200_OK,
+)
+async def get_ticket(
+    ticket_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Ticket:
+    statement = select(Ticket).where(
+        Ticket.id == ticket_id,
+        Ticket.created_by_id == current_user.id,
+    )
+
+    result = await session.execute(statement)
+    ticket = result.scalar_one_or_none()
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    return ticket

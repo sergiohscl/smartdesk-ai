@@ -456,3 +456,149 @@ async def test_list_tickets_sorting(
 
     # Ordenação secundária determinística
     assert 'tickets.id ASC' in sql
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_success(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    now = datetime.now(UTC)
+
+    ticket = Ticket(
+        id=1,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=user.id,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/1',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['id'] == 1
+    assert data['title'] == 'Computador não liga'
+    assert data['status'] == 'open'
+    assert data['priority'] == 'high'
+    assert data['created_by_id'] == user.id
+
+    assert mock_session.execute.await_count == 2
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_not_found(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/999',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'Chamado não encontrado.'
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_other_user(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/2',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 404
+
+    query = mock_session.execute.await_args_list[1].args[0]
+    compiled = query.compile()
+    sql = str(compiled)
+
+    assert 'tickets.id' in sql
+    assert 'tickets.created_by_id' in sql
+    assert user.id in compiled.params.values()
+    assert 2 in compiled.params.values()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_without_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.get('/api/v1/tickets/1')
+
+    assert response.status_code == 401
+    mock_session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_invalid_id(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    mock_authenticated_user(mock_session, user)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/abc',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 422
