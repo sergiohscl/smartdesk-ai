@@ -82,3 +82,8 @@ format_check = "ruff format --check ."
 run = "python -m fastapi dev app/main.py"
 test = "python -m pytest -v"
 check = "ruff check . && ruff format --check . && python -m pytest -v"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
