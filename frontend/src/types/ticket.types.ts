@@ -5,6 +5,13 @@ export interface TicketStatsData {
   resolved: number;
 }
 
+export interface TicketStatsResponse {
+  total: number;
+  open: number;
+  in_progress: number;
+  resolved: number;
+}
+
 export type TicketStatus =
   | "open"
   | "in_progress"

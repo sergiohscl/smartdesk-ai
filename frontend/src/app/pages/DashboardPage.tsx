@@ -1,12 +1,23 @@
 import { DashboardLayout } from "@/app/components/DashboardLayout/DashboardLayout";
 
 import { TicketStats } from "@/app/components/TicketStats/TicketStats";
+import { TicketStatsSkeleton } from "@/app/components/TicketStats/TicketStatsSkeleton";
+import { TicketStatsError } from "@/app/components/TicketStats/TicketStatsError";
 import { TicketTable } from "@/app/components/TicketTable/TicketTable";
 
-import { mockTicketStats } from "@/data/mockTicketStats";
+import { useTicketStats } from "@/hooks/useTicketStats";
+
 import { mockTickets } from "@/data/mockTickets";
 
 export function DashboardPage() {
+  const {
+    data: stats,
+    isPending,
+    isError,
+    isFetching,
+    refetch,
+  } = useTicketStats();
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -20,13 +31,21 @@ export function DashboardPage() {
           </p>
         </div>
 
-        {/* Indicadores de chamados */}
-        <TicketStats
-          stats={mockTicketStats}
-          isDemo
-        />
+        {/* Indicadores reais */}
+        {isPending ? (
+          <TicketStatsSkeleton />
+        ) : isError && !stats ? (
+          <TicketStatsError
+            onRetry={() => {
+              void refetch();
+            }}
+            isRetrying={isFetching}
+          />
+        ) : stats ? (
+          <TicketStats stats={stats} />
+        ) : null}
 
-        {/* Listagem de chamados */}
+        {/* Listagem demonstrativa */}
         <TicketTable
           tickets={mockTickets}
           isDemo
