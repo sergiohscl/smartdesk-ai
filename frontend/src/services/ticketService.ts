@@ -1,3 +1,4 @@
+
 import { api } from "@/services/api";
 
 import type {
@@ -23,6 +24,14 @@ function mapTicket(ticket: TicketResponse): Ticket {
 }
 
 export const ticketService = {
+  async getById(ticketId: string): Promise<Ticket> {
+    const { data } = await api.get<TicketResponse>(
+      `/tickets/${ticketId}`,
+    );
+
+    return mapTicket(data);
+  },
+
   async getStats(): Promise<TicketStatsData> {
     const { data } = await api.get<TicketStatsResponse>(
       "/tickets/stats",

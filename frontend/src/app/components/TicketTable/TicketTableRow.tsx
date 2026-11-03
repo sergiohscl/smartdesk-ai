@@ -1,3 +1,6 @@
+
+import { Link } from "@tanstack/react-router";
+
 import type { Ticket } from "@/types/ticket.types";
 
 import { TicketStatusBadge } from "./TicketStatusBadge";
@@ -23,13 +26,19 @@ export function TicketTableRow({
       </td>
 
       <td className="px-6 py-4">
-        <p className="text-sm font-medium text-white">
-          {ticket.title}
-        </p>
+        <Link
+          to="/tickets/$ticketId"
+          params={{ ticketId: ticket.id }}
+          className="group block"
+        >
+          <p className="text-sm font-medium text-white transition-colors group-hover:text-blue-400 group-focus-visible:text-blue-400">
+            {ticket.title}
+          </p>
 
-        <p className="mt-1 text-xs text-slate-400">
-          {ticket.description}
-        </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {ticket.description}
+          </p>
+        </Link>
       </td>
 
       <td className="px-6 py-4">

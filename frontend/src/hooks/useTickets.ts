@@ -22,3 +22,13 @@ export function useTickets({
     staleTime: 30_000,
   });
 }
+
+export function useTicket(ticketId: string) {
+  return useQuery({
+    queryKey: ["tickets", "detail", ticketId],
+    queryFn: () => ticketService.getById(ticketId),
+    enabled: /^\d+$/.test(ticketId) && Number(ticketId) > 0,
+    retry: false,
+    staleTime: 30_000,
+  });
+}
