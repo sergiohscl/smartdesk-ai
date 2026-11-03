@@ -32,3 +32,35 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface TicketResponse {
+  id: number;
+  title: string;
+  description: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  created_by_id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketListResponse {
+  items: TicketResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+export interface TicketListData {
+  items: Ticket[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+}
+
+export interface TicketListParams {
+  page?: number;
+  pageSize?: number;
+}

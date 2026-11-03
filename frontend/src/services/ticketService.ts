@@ -1,9 +1,26 @@
 import { api } from "@/services/api";
 
 import type {
+  Ticket,
+  TicketListData,
+  TicketListParams,
+  TicketListResponse,
+  TicketResponse,
   TicketStatsData,
   TicketStatsResponse,
 } from "@/types/ticket.types";
+
+function mapTicket(ticket: TicketResponse): Ticket {
+  return {
+    id: String(ticket.id),
+    title: ticket.title,
+    description: ticket.description,
+    status: ticket.status,
+    priority: ticket.priority,
+    createdAt: ticket.created_at,
+    updatedAt: ticket.updated_at ?? ticket.created_at,
+  };
+}
 
 export const ticketService = {
   async getStats(): Promise<TicketStatsData> {
@@ -16,6 +33,29 @@ export const ticketService = {
       open: data.open,
       inProgress: data.in_progress,
       resolved: data.resolved,
+    };
+  },
+
+  async getTickets({
+    page = 1,
+    pageSize = 10,
+  }: TicketListParams = {}): Promise<TicketListData> {
+    const { data } = await api.get<TicketListResponse>(
+      "/tickets",
+      {
+        params: {
+          page,
+          page_size: pageSize,
+        },
+      },
+    );
+
+    return {
+      items: data.items.map(mapTicket),
+      total: data.total,
+      page: data.page,
+      pageSize: data.page_size,
+      pages: data.pages,
     };
   },
 };
