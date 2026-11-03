@@ -23,6 +23,12 @@ export type TicketPriority =
   | "high"
   | "critical";
 
+export interface TicketCreate {
+  title: string;
+  description: string;
+  priority: TicketPriority;
+}
+
 export interface Ticket {
   id: string;
   title: string;

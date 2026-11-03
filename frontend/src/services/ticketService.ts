@@ -3,6 +3,7 @@ import { api } from "@/services/api";
 
 import type {
   Ticket,
+  TicketCreate,
   TicketListData,
   TicketListParams,
   TicketListResponse,
@@ -24,6 +25,15 @@ function mapTicket(ticket: TicketResponse): Ticket {
 }
 
 export const ticketService = {
+  async createTicket(payload: TicketCreate): Promise<Ticket> {
+    const { data } = await api.post<TicketResponse>(
+      "/tickets",
+      payload,
+    );
+
+    return mapTicket(data);
+  },
+
   async getById(ticketId: string): Promise<Ticket> {
     const { data } = await api.get<TicketResponse>(
       `/tickets/${ticketId}`,

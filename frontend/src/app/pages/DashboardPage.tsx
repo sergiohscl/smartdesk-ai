@@ -5,6 +5,7 @@ import { TicketStats } from "@/app/components/TicketStats/TicketStats";
 import { TicketStatsSkeleton } from "@/app/components/TicketStats/TicketStatsSkeleton";
 import { TicketStatsError } from "@/app/components/TicketStats/TicketStatsError";
 import { TicketTable } from "@/app/components/TicketTable/TicketTable";
+import { CreateTicketForm } from "@/app/components/CreateTicketForm/CreateTicketForm";
 
 import { useTicketStats } from "@/hooks/useTicketStats";
 import { useTickets } from "@/hooks/useTickets";
@@ -13,6 +14,7 @@ const PAGE_SIZE = 10;
 
 export function DashboardPage() {
   const [page, setPage] = useState(1);
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
 
   const {
     data: stats,
@@ -48,18 +50,57 @@ export function DashboardPage() {
     setPage(nextPage);
   };
 
+  const handleTicketCreated = () => {
+    setIsCreateFormOpen(false);
+    setPage(1);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            Visão geral
-          </h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Visão geral</h2>
 
-          <p className="mt-2 text-sm text-slate-400">
-            Acompanhe e gerencie seus chamados de suporte.
-          </p>
+            <p className="mt-2 text-sm text-slate-400">
+              Acompanhe e gerencie seus chamados de suporte.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCreateFormOpen((previous) => !previous)}
+            aria-expanded={isCreateFormOpen}
+            aria-controls="create-ticket-panel"
+            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-500"
+          >
+            {isCreateFormOpen ? "Fechar formulário" : "+ Novo chamado"}
+          </button>
         </div>
+
+        {isCreateFormOpen && (
+          <section
+            id="create-ticket-panel"
+            aria-label="Criar novo chamado"
+            className="rounded-xl border border-slate-800 bg-slate-900 p-6"
+          >
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-white">
+                Criar novo chamado
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Preencha as informações para registrar um novo chamado de
+                suporte.
+              </p>
+            </div>
+
+            <CreateTicketForm
+              onSuccess={handleTicketCreated}
+              onCancel={() => setIsCreateFormOpen(false)}
+            />
+          </section>
+        )}
 
         {isStatsPending ? (
           <TicketStatsSkeleton />
@@ -80,9 +121,7 @@ export function DashboardPage() {
               role="status"
               className="rounded-xl border border-slate-800 bg-slate-900 px-6 py-12 text-center"
             >
-              <p className="text-sm text-slate-400">
-                Carregando chamados...
-              </p>
+              <p className="text-sm text-slate-400">Carregando chamados...</p>
             </section>
           ) : isTicketsError ? (
             <section
