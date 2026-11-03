@@ -39,7 +39,7 @@ export function TicketTable({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
+          <table className="w-full min-w-190 text-left">
             <thead className="bg-slate-800/50">
               <tr className="text-xs uppercase tracking-wider text-slate-400">
                 <th scope="col" className="px-6 py-4">
