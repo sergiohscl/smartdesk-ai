@@ -1,3 +1,4 @@
+import { useState } from "react";
 
 import { DashboardLayout } from "@/app/components/DashboardLayout/DashboardLayout";
 import { TicketStats } from "@/app/components/TicketStats/TicketStats";
@@ -8,7 +9,11 @@ import { TicketTable } from "@/app/components/TicketTable/TicketTable";
 import { useTicketStats } from "@/hooks/useTicketStats";
 import { useTickets } from "@/hooks/useTickets";
 
+const PAGE_SIZE = 10;
+
 export function DashboardPage() {
+  const [page, setPage] = useState(1);
+
   const {
     data: stats,
     isPending: isStatsPending,
@@ -22,11 +27,26 @@ export function DashboardPage() {
     isPending: isTicketsPending,
     isError: isTicketsError,
     isFetching: isTicketsFetching,
+    isPlaceholderData,
     refetch: refetchTickets,
   } = useTickets({
-    page: 1,
-    pageSize: 10,
+    page,
+    pageSize: PAGE_SIZE,
   });
+
+  const handlePageChange = (nextPage: number) => {
+    if (
+      nextPage < 1 ||
+      isTicketsFetching ||
+      isPlaceholderData ||
+      !ticketsData ||
+      nextPage > ticketsData.pages
+    ) {
+      return;
+    }
+
+    setPage(nextPage);
+  };
 
   return (
     <DashboardLayout>
@@ -64,7 +84,7 @@ export function DashboardPage() {
                 Carregando chamados...
               </p>
             </section>
-          ) : isTicketsError && !ticketsData ? (
+          ) : isTicketsError ? (
             <section
               role="alert"
               className="rounded-xl border border-red-900/50 bg-red-950/20 p-6"
@@ -91,7 +111,16 @@ export function DashboardPage() {
               </button>
             </section>
           ) : ticketsData ? (
-            <TicketTable tickets={ticketsData.items} />
+            <TicketTable
+              tickets={ticketsData.items}
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={ticketsData.total}
+              totalPages={ticketsData.pages}
+              onPageChange={handlePageChange}
+              isFetching={isTicketsFetching}
+              isPlaceholderData={isPlaceholderData}
+            />
           ) : null}
         </div>
       </div>

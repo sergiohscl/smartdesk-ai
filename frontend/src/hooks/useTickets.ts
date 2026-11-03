@@ -1,4 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+} from "@tanstack/react-query";
 
 import { ticketService } from "@/services/ticketService";
 
@@ -15,6 +18,7 @@ export function useTickets({
         page,
         pageSize,
       }),
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 }
