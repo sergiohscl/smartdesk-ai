@@ -6,12 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
-from app.models.ticket import Ticket
+from app.models.ticket import Ticket, TicketStatus
 from app.models.user import User
 from app.schemas.ticket import (
     TicketCreate,
     TicketListResponse,
     TicketPublic,
+    TicketStats,
     TicketUpdate,
 )
 
@@ -117,6 +118,42 @@ async def list_tickets(
         page=page,
         page_size=page_size,
         pages=pages,
+    )
+
+
+@router.get(
+    '/stats',
+    response_model=TicketStats,
+    status_code=status.HTTP_200_OK,
+)
+async def get_ticket_stats(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TicketStats:
+    statement = select(
+        func.count(Ticket.id).label('total'),
+        func
+        .count(Ticket.id)
+        .filter(Ticket.status == TicketStatus.OPEN)
+        .label('open'),
+        func
+        .count(Ticket.id)
+        .filter(Ticket.status == TicketStatus.IN_PROGRESS)
+        .label('in_progress'),
+        func
+        .count(Ticket.id)
+        .filter(Ticket.status == TicketStatus.RESOLVED)
+        .label('resolved'),
+    ).where(Ticket.created_by_id == current_user.id)
+
+    result = await session.execute(statement)
+    stats = result.one()
+
+    return TicketStats(
+        total=stats.total,
+        open=stats.open,
+        in_progress=stats.in_progress,
+        resolved=stats.resolved,
     )
 
 

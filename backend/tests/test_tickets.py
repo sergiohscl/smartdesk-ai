@@ -983,3 +983,149 @@ async def test_delete_ticket_invalid_id(
 
     mock_session.delete.assert_not_awaited()
     mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_stats_success(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    token = create_access_token(subject=str(user.id))
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    stats_result = MagicMock()
+    stats_result.one.return_value = MagicMock(
+        total=10,
+        open=4,
+        in_progress=3,
+        resolved=3,
+    )
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        stats_result,
+    ]
+
+    response = await client.get(
+        '/api/v1/tickets/stats',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'total': 10,
+        'open': 4,
+        'in_progress': 3,
+        'resolved': 3,
+    }
+
+    assert mock_session.execute.await_count == 2
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_stats_empty(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    token = create_access_token(subject=str(user.id))
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    stats_result = MagicMock()
+    stats_result.one.return_value = MagicMock(
+        total=0,
+        open=0,
+        in_progress=0,
+        resolved=0,
+    )
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        stats_result,
+    ]
+
+    response = await client.get(
+        '/api/v1/tickets/stats',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        'total': 0,
+        'open': 0,
+        'in_progress': 0,
+        'resolved': 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_stats_without_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.get(
+        '/api/v1/tickets/stats',
+    )
+
+    assert response.status_code == 401
+    mock_session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_stats_invalid_token(
+    client: AsyncClient,
+    mock_session,
+):
+    response = await client.get(
+        '/api/v1/tickets/stats',
+        headers={'Authorization': 'Bearer invalid-token'},
+    )
+
+    assert response.status_code == 401
+    mock_session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_stats_filters_by_authenticated_user(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+    token = create_access_token(subject=str(user.id))
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    stats_result = MagicMock()
+    stats_result.one.return_value = MagicMock(
+        total=5,
+        open=2,
+        in_progress=1,
+        resolved=2,
+    )
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        stats_result,
+    ]
+
+    response = await client.get(
+        '/api/v1/tickets/stats',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+    assert response.json()['total'] == 5
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+
+    compiled = statement.compile()
+
+    assert 'created_by_id' in str(compiled)
+    assert user.id in compiled.params.values()
