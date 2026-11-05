@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DashboardLayout } from "@/app/components/DashboardLayout/DashboardLayout";
 import { TicketStats } from "@/app/components/TicketStats/TicketStats";
@@ -21,6 +21,18 @@ export function DashboardPage() {
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">(
     "all",
   );
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [searchInput]);
 
   const {
     data: stats,
@@ -42,6 +54,7 @@ export function DashboardPage() {
     pageSize: PAGE_SIZE,
     status: statusFilter === "all" ? undefined : statusFilter,
     priority: priorityFilter === "all" ? undefined : priorityFilter,
+    search: debouncedSearch,
   });
 
   const handlePageChange = (nextPage: number) => {
@@ -144,6 +157,42 @@ export function DashboardPage() {
             aria-label="Filtros de chamados"
             className="rounded-xl border border-slate-800 bg-slate-900 p-5"
           >
+            <div className="mb-4">
+              <label
+                htmlFor="ticket-search"
+                className="mb-2 block text-sm font-medium text-slate-300"
+              >
+                Buscar chamado por título
+              </label>
+
+              <div className="flex gap-2">
+                <input
+                  id="ticket-search"
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => {
+                    setSearchInput(event.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Digite o título do chamado..."
+                  maxLength={200}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500"
+                />
+
+                {searchInput !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchInput("");
+                      setPage(1);
+                    }}
+                    className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+            </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="grid flex-1 gap-4 sm:grid-cols-2">
                 <div>

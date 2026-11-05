@@ -78,4 +78,5 @@ export interface TicketListParams {
   pageSize?: number;
   status?: TicketStatus;
   priority?: TicketPriority;
+  search?: string;
 }

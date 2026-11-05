@@ -66,13 +66,17 @@ export const ticketService = {
     pageSize = 10,
     status,
     priority,
+    search,
   }: TicketListParams = {}): Promise<TicketListData> {
+    const normalizedSearch = search?.trim();
+
     const { data } = await api.get<TicketListResponse>("/tickets", {
       params: {
         page,
         page_size: pageSize,
         ...(status !== undefined && { status }),
         ...(priority !== undefined && { priority }),
+        ...(normalizedSearch && { search: normalizedSearch }),
       },
     });
 
@@ -84,4 +88,4 @@ export const ticketService = {
       pages: data.pages,
     };
   },
-};
+}

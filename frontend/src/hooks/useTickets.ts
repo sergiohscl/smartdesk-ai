@@ -12,7 +12,10 @@ export function useTickets({
   pageSize = 10,
   status,
   priority,
+  search,
 }: TicketListParams = {}) {
+  const normalizedSearch = search?.trim() || null;
+
   return useQuery({
     queryKey: [
       "tickets",
@@ -21,6 +24,7 @@ export function useTickets({
       pageSize,
       status ?? null,
       priority ?? null,
+      normalizedSearch,
     ],
     queryFn: () =>
       ticketService.getTickets({
@@ -28,6 +32,7 @@ export function useTickets({
         pageSize,
         status,
         priority,
+        search: normalizedSearch ?? undefined,
       }),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
