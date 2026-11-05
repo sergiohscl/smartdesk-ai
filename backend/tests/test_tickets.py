@@ -459,6 +459,114 @@ async def test_list_tickets_sorting(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('params', 'expected_filters'),
+    [
+        ({'status': 'open'}, {'open'}),
+        ({'status': 'in_progress'}, {'in_progress'}),
+        ({'status': 'resolved'}, {'resolved'}),
+        ({'priority': 'low'}, {'low'}),
+        ({'priority': 'medium'}, {'medium'}),
+        ({'priority': 'high'}, {'high'}),
+        ({'priority': 'critical'}, {'critical'}),
+        (
+            {'status': 'open', 'priority': 'high'},
+            {'open', 'high'},
+        ),
+    ],
+)
+async def test_list_tickets_filtering(
+    client: AsyncClient,
+    mock_session,
+    params: dict[str, str],
+    expected_filters: set[str],
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params=params,
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    mock_session.scalar.assert_awaited_once()
+
+    count_call = mock_session.scalar.await_args
+
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+
+    assert mock_session.execute.await_count == 2
+
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+        values = set(compiled.params.values())
+
+        assert 'tickets.created_by_id' in sql
+        assert user.id in values
+
+        for value in expected_filters:
+            assert value in values
+
+        if 'status' in params:
+            assert 'tickets.status =' in sql
+
+        if 'priority' in params:
+            assert 'tickets.priority =' in sql
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'params',
+    [
+        {'status': 'invalid'},
+        {'priority': 'urgent'},
+        {'status': 'OPEN'},
+        {'priority': 'HIGH'},
+    ],
+)
+async def test_list_tickets_invalid_filters(
+    client: AsyncClient,
+    mock_session,
+    params: dict[str, str],
+):
+    user = make_user()
+    mock_authenticated_user(mock_session, user)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params=params,
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 422
+    mock_session.scalar.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_ticket_success(
     client: AsyncClient,
     mock_session,

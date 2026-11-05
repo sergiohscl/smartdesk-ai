@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
-from app.models.ticket import Ticket, TicketStatus
+from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User
 from app.schemas.ticket import (
     TicketCreate,
@@ -66,12 +66,19 @@ async def list_tickets(
         'updated_at',
     ] = 'created_at',
     sort_order: Literal['asc', 'desc'] = 'desc',
+    status: TicketStatus | None = None,
+    priority: TicketPriority | None = None,
 ) -> TicketListResponse:
-    filters = Ticket.created_by_id == current_user.id
+    filters = [Ticket.created_by_id == current_user.id]
+
+    if status is not None:
+        filters.append(Ticket.status == status)
+
+    if priority is not None:
+        filters.append(Ticket.priority == priority)
 
     # Total de chamados do usuário autenticado
-    count_query = select(func.count()).select_from(Ticket).where(filters)
-
+    count_query = select(func.count()).select_from(Ticket).where(*filters)
     total = await session.scalar(count_query)
     total = total or 0
 
@@ -97,7 +104,7 @@ async def list_tickets(
 
     query = (
         select(Ticket)
-        .where(filters)
+        .where(*filters)
         .order_by(ordering, Ticket.id.asc())
         .offset(offset)
         .limit(page_size)
