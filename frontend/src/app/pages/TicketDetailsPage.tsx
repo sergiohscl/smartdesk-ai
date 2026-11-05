@@ -1,12 +1,15 @@
 import { useState } from "react";
-import { Link, useParams } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, Hash, Pencil } from "lucide-react";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { ArrowLeft, CalendarDays, Hash, Pencil, Trash2 } from "lucide-react";
 import axios from "axios";
 
 import { DashboardLayout } from "@/app/components/DashboardLayout/DashboardLayout";
 import { EditTicketForm } from "@/app/components/EditTicketForm/EditTicketForm";
 import { TicketPriorityBadge } from "@/app/components/TicketTable/TicketPriorityBadge";
 import { TicketStatusBadge } from "@/app/components/TicketTable/TicketStatusBadge";
+import { DeleteTicketDialog } from "@/app/components/DeleteTicketDialog/DeleteTicketDialog";
+
+import { useDeleteTicket } from "@/hooks/useDeleteTicket";
 import { useTicket } from "@/hooks/useTickets";
 
 function formatDate(date: string) {
@@ -27,6 +30,11 @@ function formatDate(date: string) {
 
 export function TicketDetailsPage() {
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+  const deleteTicket = useDeleteTicket();
 
   const { ticketId } = useParams({
     from: "/tickets/$ticketId",
@@ -48,6 +56,34 @@ export function TicketDetailsPage() {
     axios.isAxiosError(error) && error.response?.status === 404;
 
   const isEditing = Boolean(ticket && editingTicketId === ticket.id);
+
+  function handleOpenDeleteDialog() {
+    setDeleteError(null);
+    setIsDeleteDialogOpen(true);
+  }
+
+  function handleCloseDeleteDialog() {
+    if (deleteTicket.isPending) return;
+
+    setIsDeleteDialogOpen(false);
+    setDeleteError(null);
+  }
+
+  async function handleConfirmDelete() {
+    if (!ticket || deleteTicket.isPending) return;
+
+    setDeleteError(null);
+
+    try {
+      await deleteTicket.mutateAsync(ticket.id);
+
+      setIsDeleteDialogOpen(false);
+
+      await navigate({ to: "/" });
+    } catch {
+      setDeleteError("Não foi possível excluir o chamado. Tente novamente.");
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -101,14 +137,25 @@ export function TicketDetailsPage() {
               </div>
 
               {!isEditing && (
-                <button
-                  type="button"
-                  onClick={() => setEditingTicketId(ticket.id)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
-                >
-                  <Pencil size={16} />
-                  Editar chamado
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTicketId(ticket.id)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
+                  >
+                    <Pencil size={16} />
+                    Editar chamado
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenDeleteDialog}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition hover:bg-red-500/20"
+                  >
+                    <Trash2 size={16} />
+                    Excluir chamado
+                  </button>
+                </div>
               )}
             </div>
 
@@ -175,6 +222,16 @@ export function TicketDetailsPage() {
                   </div>
                 </div>
               </section>
+            )}
+
+            {isDeleteDialogOpen && (
+              <DeleteTicketDialog
+                ticketTitle={ticket.title}
+                isDeleting={deleteTicket.isPending}
+                errorMessage={deleteError}
+                onCancel={handleCloseDeleteDialog}
+                onConfirm={handleConfirmDelete}
+              />
             )}
           </>
         ) : null}

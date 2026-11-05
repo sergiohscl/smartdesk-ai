@@ -40,6 +40,10 @@ export const ticketService = {
     return mapTicket(data);
   },
 
+  async deleteTicket(ticketId: string): Promise<void> {
+    await api.delete(`/tickets/${ticketId}`);
+  },
+
   async getById(ticketId: string): Promise<Ticket> {
     const { data } = await api.get<TicketResponse>(`/tickets/${ticketId}`);
 
