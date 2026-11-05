@@ -538,6 +538,404 @@ async def test_list_tickets_filtering(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ('search', 'expected_pattern'),
+    [
+        ('computador', '%computador%'),
+        ('ERRO', '%ERRO%'),
+        ('login', '%login%'),
+        ('  impressora  ', '%impressora%'),
+    ],
+)
+async def test_list_tickets_search_by_title(
+    client: AsyncClient,
+    mock_session,
+    search: str,
+    expected_pattern: str,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params={'search': search},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['items'] == []
+    assert data['total'] == 0
+    assert data['pages'] == 0
+
+    mock_session.scalar.assert_awaited_once()
+    assert mock_session.execute.await_count == 2
+
+    count_call = mock_session.scalar.await_args
+
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+        values = compiled.params.values()
+
+        assert 'tickets.created_by_id' in sql
+        assert 'lower(tickets.title) LIKE lower(' in sql
+
+        assert user.id in values
+        assert expected_pattern in values
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('params', 'expected_values'),
+    [
+        (
+            {'search': 'erro', 'status': 'open'},
+            {'%erro%', 'open'},
+        ),
+        (
+            {'search': 'login', 'priority': 'high'},
+            {'%login%', 'high'},
+        ),
+        (
+            {
+                'search': 'computador',
+                'status': 'in_progress',
+                'priority': 'critical',
+            },
+            {'%computador%', 'in_progress', 'critical'},
+        ),
+    ],
+)
+async def test_list_tickets_search_with_filters(
+    client: AsyncClient,
+    mock_session,
+    params: dict[str, str],
+    expected_values: set[str],
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params=params,
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    mock_session.scalar.assert_awaited_once()
+    assert mock_session.execute.await_count == 2
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+        values = set(compiled.params.values())
+
+        assert 'tickets.created_by_id' in sql
+        assert 'lower(tickets.title) LIKE lower(' in sql
+        assert user.id in values
+
+        if 'status' in params:
+            assert 'tickets.status =' in sql
+
+        if 'priority' in params:
+            assert 'tickets.priority =' in sql
+
+        for value in expected_values:
+            assert value in values
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_list_tickets_search_pagination(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=25)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params={
+            'search': 'computador',
+            'page': 2,
+            'page_size': 10,
+        },
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['items'] == []
+    assert data['total'] == 25
+    assert data['page'] == 2
+    assert data['page_size'] == 10
+    assert data['pages'] == 3
+
+    mock_session.scalar.assert_awaited_once()
+    assert mock_session.execute.await_count == 2
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+
+        assert 'tickets.created_by_id' in sql
+        assert 'lower(tickets.title) LIKE lower(' in sql
+        assert user.id in compiled.params.values()
+        assert '%computador%' in compiled.params.values()
+
+    compiled_list = list_query.compile()
+    sql_list = str(compiled_list)
+
+    assert 'LIMIT' in sql_list
+    assert 'OFFSET' in sql_list
+
+    values = list(compiled_list.params.values())
+
+    assert 10 in values
+    assert 'tickets.created_at DESC' in sql_list
+    assert 'tickets.id ASC' in sql_list
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'search',
+    ['', ' ', '   '],
+)
+async def test_list_tickets_search_empty(
+    client: AsyncClient,
+    mock_session,
+    search: str,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params={'search': search},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+
+        assert 'tickets.created_by_id' in sql
+        assert 'lower(tickets.title) LIKE lower(' not in sql
+        assert user.id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('search', 'expected_pattern'),
+    [
+        ('100%', r'%100\%%'),
+        ('erro_login', r'%erro\_login%'),
+        ('C:\\Sistema', r'%C:\\Sistema%'),
+    ],
+)
+async def test_list_tickets_search_special_characters(
+    client: AsyncClient,
+    mock_session,
+    search: str,
+    expected_pattern: str,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params={'search': search},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    for query in (count_query, list_query):
+        compiled = query.compile()
+        sql = str(compiled)
+
+        assert 'lower(tickets.title) LIKE lower(' in sql
+        assert expected_pattern in compiled.params.values()
+        assert user.id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('search', 'expected_status'),
+    [
+        ('a' * 200, 200),
+        ('a' * 201, 422),
+    ],
+)
+async def test_list_tickets_search_length_validation(
+    client: AsyncClient,
+    mock_session,
+    search: str,
+    expected_status: int,
+):
+    user = make_user()
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        params={'search': search},
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == expected_status
+
+    if expected_status == 200:
+        mock_session.scalar.assert_awaited_once()
+        assert mock_session.execute.await_count == 2
+
+        count_call = mock_session.scalar.await_args
+        assert count_call is not None
+
+        count_query = count_call.args[0]
+        list_query = mock_session.execute.await_args_list[1].args[0]
+
+        for query in (count_query, list_query):
+            compiled = query.compile()
+
+            assert f'%{search}%' in compiled.params.values()
+            assert user.id in compiled.params.values()
+
+    else:
+        mock_session.scalar.assert_not_awaited()
+
+        # A autenticação pode consultar o banco,
+        # mas a listagem não deve ser executada.
+        assert mock_session.execute.await_count <= 1
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     'params',
     [
         {'status': 'invalid'},

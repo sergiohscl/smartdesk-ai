@@ -68,6 +68,10 @@ async def list_tickets(
     sort_order: Literal['asc', 'desc'] = 'desc',
     status: TicketStatus | None = None,
     priority: TicketPriority | None = None,
+    search: Annotated[
+        str | None,
+        Query(max_length=200),
+    ] = None,
 ) -> TicketListResponse:
     filters = [Ticket.created_by_id == current_user.id]
 
@@ -76,6 +80,24 @@ async def list_tickets(
 
     if priority is not None:
         filters.append(Ticket.priority == priority)
+
+    if search is not None:
+        normalized_search = search.strip()
+
+        if normalized_search:
+            escaped_search = (
+                normalized_search
+                .replace('\\', '\\\\')
+                .replace('%', '\\%')
+                .replace('_', '\\_')
+            )
+
+            filters.append(
+                Ticket.title.ilike(
+                    f'%{escaped_search}%',
+                    escape='\\',
+                )
+            )
 
     # Total de chamados do usuário autenticado
     count_query = select(func.count()).select_from(Ticket).where(*filters)
