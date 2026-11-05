@@ -1,4 +1,3 @@
-
 import { api } from "@/services/api";
 
 import type {
@@ -10,6 +9,7 @@ import type {
   TicketResponse,
   TicketStatsData,
   TicketStatsResponse,
+  TicketUpdate,
 } from "@/types/ticket.types";
 
 function mapTicket(ticket: TicketResponse): Ticket {
@@ -26,8 +26,14 @@ function mapTicket(ticket: TicketResponse): Ticket {
 
 export const ticketService = {
   async createTicket(payload: TicketCreate): Promise<Ticket> {
-    const { data } = await api.post<TicketResponse>(
-      "/tickets",
+    const { data } = await api.post<TicketResponse>("/tickets", payload);
+
+    return mapTicket(data);
+  },
+
+  async updateTicket(ticketId: string, payload: TicketUpdate): Promise<Ticket> {
+    const { data } = await api.patch<TicketResponse>(
+      `/tickets/${ticketId}`,
       payload,
     );
 
@@ -35,17 +41,13 @@ export const ticketService = {
   },
 
   async getById(ticketId: string): Promise<Ticket> {
-    const { data } = await api.get<TicketResponse>(
-      `/tickets/${ticketId}`,
-    );
+    const { data } = await api.get<TicketResponse>(`/tickets/${ticketId}`);
 
     return mapTicket(data);
   },
 
   async getStats(): Promise<TicketStatsData> {
-    const { data } = await api.get<TicketStatsResponse>(
-      "/tickets/stats",
-    );
+    const { data } = await api.get<TicketStatsResponse>("/tickets/stats");
 
     return {
       total: data.total,
@@ -59,15 +61,12 @@ export const ticketService = {
     page = 1,
     pageSize = 10,
   }: TicketListParams = {}): Promise<TicketListData> {
-    const { data } = await api.get<TicketListResponse>(
-      "/tickets",
-      {
-        params: {
-          page,
-          page_size: pageSize,
-        },
+    const { data } = await api.get<TicketListResponse>("/tickets", {
+      params: {
+        page,
+        page_size: pageSize,
       },
-    );
+    });
 
     return {
       items: data.items.map(mapTicket),

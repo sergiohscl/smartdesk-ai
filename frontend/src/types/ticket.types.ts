@@ -29,6 +29,13 @@ export interface TicketCreate {
   priority: TicketPriority;
 }
 
+export interface TicketUpdate {
+  title?: string;
+  description?: string;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+}
+
 export interface Ticket {
   id: string;
   title: string;
