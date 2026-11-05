@@ -64,11 +64,15 @@ export const ticketService = {
   async getTickets({
     page = 1,
     pageSize = 10,
+    status,
+    priority,
   }: TicketListParams = {}): Promise<TicketListData> {
     const { data } = await api.get<TicketListResponse>("/tickets", {
       params: {
         page,
         page_size: pageSize,
+        ...(status !== undefined && { status }),
+        ...(priority !== undefined && { priority }),
       },
     });
 

@@ -76,4 +76,6 @@ export interface TicketListData {
 export interface TicketListParams {
   page?: number;
   pageSize?: number;
+  status?: TicketStatus;
+  priority?: TicketPriority;
 }

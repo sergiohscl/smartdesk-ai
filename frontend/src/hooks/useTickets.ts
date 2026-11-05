@@ -10,13 +10,24 @@ import type { TicketListParams } from "@/types/ticket.types";
 export function useTickets({
   page = 1,
   pageSize = 10,
+  status,
+  priority,
 }: TicketListParams = {}) {
   return useQuery({
-    queryKey: ["tickets", "list", page, pageSize],
+    queryKey: [
+      "tickets",
+      "list",
+      page,
+      pageSize,
+      status ?? null,
+      priority ?? null,
+    ],
     queryFn: () =>
       ticketService.getTickets({
         page,
         pageSize,
+        status,
+        priority,
       }),
     placeholderData: keepPreviousData,
     staleTime: 30_000,

@@ -10,11 +10,17 @@ import { CreateTicketForm } from "@/app/components/CreateTicketForm/CreateTicket
 import { useTicketStats } from "@/hooks/useTicketStats";
 import { useTickets } from "@/hooks/useTickets";
 
+import type { TicketPriority, TicketStatus } from "@/types/ticket.types";
+
 const PAGE_SIZE = 10;
 
 export function DashboardPage() {
   const [page, setPage] = useState(1);
   const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">(
+    "all",
+  );
 
   const {
     data: stats,
@@ -34,6 +40,8 @@ export function DashboardPage() {
   } = useTickets({
     page,
     pageSize: PAGE_SIZE,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    priority: priorityFilter === "all" ? undefined : priorityFilter,
   });
 
   const handlePageChange = (nextPage: number) => {
@@ -52,6 +60,22 @@ export function DashboardPage() {
 
   const handleTicketCreated = () => {
     setIsCreateFormOpen(false);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value as TicketStatus | "all");
+    setPage(1);
+  };
+
+  const handlePriorityFilterChange = (value: string) => {
+    setPriorityFilter(value as TicketPriority | "all");
+    setPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setStatusFilter("all");
+    setPriorityFilter("all");
     setPage(1);
   };
 
@@ -116,6 +140,71 @@ export function DashboardPage() {
         ) : null}
 
         <div className="space-y-4">
+          <section
+            aria-label="Filtros de chamados"
+            className="rounded-xl border border-slate-800 bg-slate-900 p-5"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="grid flex-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="ticket-status-filter"
+                    className="mb-2 block text-sm font-medium text-slate-300"
+                  >
+                    Status
+                  </label>
+
+                  <select
+                    id="ticket-status-filter"
+                    value={statusFilter}
+                    onChange={(event) =>
+                      handleStatusFilterChange(event.target.value)
+                    }
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                  >
+                    <option value="all">Todos os status</option>
+                    <option value="open">Aberto</option>
+                    <option value="in_progress">Em andamento</option>
+                    <option value="resolved">Resolvido</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="ticket-priority-filter"
+                    className="mb-2 block text-sm font-medium text-slate-300"
+                  >
+                    Prioridade
+                  </label>
+
+                  <select
+                    id="ticket-priority-filter"
+                    value={priorityFilter}
+                    onChange={(event) =>
+                      handlePriorityFilterChange(event.target.value)
+                    }
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500"
+                  >
+                    <option value="all">Todas as prioridades</option>
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                    <option value="critical">Crítica</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                disabled={statusFilter === "all" && priorityFilter === "all"}
+                className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          </section>
+
           {isTicketsPending ? (
             <section
               role="status"
