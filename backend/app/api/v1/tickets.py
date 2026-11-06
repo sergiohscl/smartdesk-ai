@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.ticket import (
     TicketCreate,
     TicketListResponse,
@@ -73,7 +73,10 @@ async def list_tickets(
         Query(max_length=200),
     ] = None,
 ) -> TicketListResponse:
-    filters = [Ticket.created_by_id == current_user.id]
+    filters = []
+
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        filters.append(Ticket.created_by_id == current_user.id)
 
     if status is not None:
         filters.append(Ticket.status == status)
@@ -99,7 +102,7 @@ async def list_tickets(
                 )
             )
 
-    # Total de chamados do usuário autenticado
+    # Total de chamados visíveis para a função do usuário
     count_query = select(func.count()).select_from(Ticket).where(*filters)
     total = await session.scalar(count_query)
     total = total or 0

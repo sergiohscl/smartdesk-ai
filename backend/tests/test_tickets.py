@@ -461,6 +461,146 @@ async def test_list_tickets_sorting(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_list_tickets_global_access_by_role(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['total'] == 0
+    assert data['items'] == []
+
+    mock_session.scalar.assert_awaited_once()
+    assert mock_session.execute.await_count == 2
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    count_sql = str(count_query.compile())
+    list_sql = str(list_query.compile())
+
+    # SUPPORT e ADMIN não devem receber filtro por proprietário.
+    assert 'tickets.created_by_id' not in count_sql
+    assert 'WHERE' not in list_sql.upper()
+
+    mock_session.add.assert_not_called()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_list_tickets_global_access_with_filters(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    tickets_result = MagicMock()
+    tickets_result.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        tickets_result,
+    ]
+    mock_session.scalar = AsyncMock(return_value=0)
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets',
+        headers={'Authorization': f'Bearer {token}'},
+        params={
+            'status': 'open',
+            'priority': 'high',
+            'search': 'computador',
+            'page': 2,
+            'page_size': 5,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['total'] == 0
+    assert data['page'] == 2
+    assert data['page_size'] == 5
+    assert data['items'] == []
+
+    mock_session.scalar.assert_awaited_once()
+    assert mock_session.execute.await_count == 2
+
+    count_call = mock_session.scalar.await_args
+    assert count_call is not None
+
+    count_query = count_call.args[0]
+    list_query = mock_session.execute.await_args_list[1].args[0]
+
+    count_compiled = count_query.compile()
+    list_compiled = list_query.compile()
+
+    count_sql = str(count_compiled)
+    list_sql = str(list_compiled)
+
+    # Os filtros solicitados devem existir nas duas consultas.
+    for sql in (count_sql, list_sql):
+        assert 'tickets.status' in sql
+        assert 'tickets.priority' in sql
+        assert 'lower(tickets.title)' in sql.lower()
+
+        # Não deve existir filtro por proprietário.
+        assert 'tickets.created_by_id' not in sql.split('WHERE')[-1]
+
+    # Verificar parâmetros da busca.
+    assert '%computador%' in count_compiled.params.values()
+    assert '%computador%' in list_compiled.params.values()
+
+    # Paginação.
+    assert list_query._limit_clause.value == 5
+    assert list_query._offset_clause.value == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ('params', 'expected_filters'),
     [
         ({'status': 'open'}, {'open'}),
