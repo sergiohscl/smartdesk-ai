@@ -176,7 +176,11 @@ async def get_ticket_stats(
         .count(Ticket.id)
         .filter(Ticket.status == TicketStatus.RESOLVED)
         .label('resolved'),
-    ).where(Ticket.created_by_id == current_user.id)
+    )
+
+    # Apenas SUPPORT e ADMIN possuem acesso às estatísticas globais.
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        statement = statement.where(Ticket.created_by_id == current_user.id)
 
     result = await session.execute(statement)
     stats = result.one()

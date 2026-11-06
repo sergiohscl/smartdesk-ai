@@ -1776,3 +1776,61 @@ async def test_get_ticket_stats_filters_by_authenticated_user(
 
     assert 'created_by_id' in str(compiled)
     assert user.id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_get_ticket_stats_global_access_by_role(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    stats_result = MagicMock()
+    stats_result.one.return_value = MagicMock(
+        total=10,
+        open=4,
+        in_progress=3,
+        resolved=3,
+    )
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        stats_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/stats',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data == {
+        'total': 10,
+        'open': 4,
+        'in_progress': 3,
+        'resolved': 3,
+    }
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+
+    # Estatísticas globais não devem ter filtro por proprietário.
+    assert len(statement._where_criteria) == 0
+
+    mock_session.add.assert_not_called()
+    mock_session.commit.assert_not_awaited()
