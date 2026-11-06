@@ -1157,6 +1157,72 @@ async def test_get_ticket_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_get_ticket_global_access_by_role(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    now = datetime.now(UTC)
+
+    # Chamado pertencente a outro usuário.
+    ticket = Ticket(
+        id=2,
+        title='Problema na impressora',
+        description='A impressora não está funcionando.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=99,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/2',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['id'] == 2
+    assert data['created_by_id'] == 99
+    assert data['title'] == 'Problema na impressora'
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+
+    # Deve filtrar pelo ID do chamado, sem restringir proprietário.
+    where_sql = str(statement.compile()).split('WHERE')[-1]
+
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' not in where_sql
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_ticket_not_found(
     client: AsyncClient,
     mock_session,
@@ -1211,6 +1277,19 @@ async def test_get_ticket_other_user(
     )
 
     assert response.status_code == 404
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+
+    # USER deve ter a consulta restrita ao ID do chamado
+    # e ao proprietário autenticado.
+    where_sql = str(statement.compile()).split('WHERE')[-1]
+
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' in where_sql
+
+    assert mock_session.commit.await_count == 0
 
     query = mock_session.execute.await_args_list[1].args[0]
     compiled = query.compile()

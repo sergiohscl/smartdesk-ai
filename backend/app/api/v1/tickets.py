@@ -203,10 +203,13 @@ async def get_ticket(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Ticket:
-    statement = select(Ticket).where(
-        Ticket.id == ticket_id,
-        Ticket.created_by_id == current_user.id,
-    )
+
+    statement = select(Ticket).where(Ticket.id == ticket_id)
+
+    # USER consulta apenas os próprios chamados.
+    # SUPPORT e ADMIN podem consultar qualquer chamado.
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        statement = statement.where(Ticket.created_by_id == current_user.id)
 
     result = await session.execute(statement)
     ticket = result.scalar_one_or_none()
