@@ -1693,6 +1693,122 @@ async def test_delete_ticket_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_delete_ticket_global_access_by_role(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    now = datetime.now(UTC)
+
+    # Chamado pertencente a outro usuário.
+    ticket = Ticket(
+        id=2,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=99,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.delete(
+        '/api/v1/tickets/2',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    # Exclusão bem-sucedida não retorna conteúdo.
+    assert response.status_code == 204
+    assert response.content == b''
+
+    # Confirma a execução da exclusão.
+    mock_session.delete.assert_awaited_once_with(ticket)
+    mock_session.commit.assert_awaited_once()
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+    compiled = statement.compile()
+    where_sql = str(compiled).split('WHERE')[-1]
+
+    # SUPPORT e ADMIN não devem ter restrição por proprietário.
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' not in where_sql
+    assert ticket.id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_delete_ticket_global_role_not_found(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    # O chamado solicitado não existe.
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.delete(
+        '/api/v1/tickets/999',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'Chamado não encontrado.'
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+    compiled = statement.compile()
+    where_sql = str(compiled).split('WHERE')[-1]
+
+    # A consulta deve buscar o chamado sem restringir proprietário.
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' not in where_sql
+    assert 999 in compiled.params.values()
+
+    # Nenhuma exclusão ou persistência deve ocorrer.
+    mock_session.delete.assert_not_awaited()
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_delete_ticket_without_token(
     client: AsyncClient,
     mock_session,

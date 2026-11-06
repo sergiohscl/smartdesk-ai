@@ -271,12 +271,14 @@ async def delete_ticket(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> Response:
-    result = await session.execute(
-        select(Ticket).where(
-            Ticket.id == ticket_id,
-            Ticket.created_by_id == current_user.id,
-        )
-    )
+    statement = select(Ticket).where(Ticket.id == ticket_id)
+
+    # USER pode excluir apenas os próprios chamados.
+    # SUPPORT e ADMIN podem excluir qualquer chamado.
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        statement = statement.where(Ticket.created_by_id == current_user.id)
+
+    result = await session.execute(statement)
 
     ticket = result.scalar_one_or_none()
 
