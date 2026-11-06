@@ -1431,6 +1431,79 @@ async def test_update_ticket_success(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.SUPPORT, UserRole.ADMIN],
+)
+async def test_update_ticket_global_access_by_role(
+    client: AsyncClient,
+    mock_session,
+    role: UserRole,
+):
+    user = make_user()
+    user.role = role
+
+    now = datetime.now(UTC)
+
+    # Chamado pertencente a outro usuário.
+    ticket = Ticket(
+        id=2,
+        title='Computador não liga',
+        description='O computador não inicia.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.HIGH,
+        created_by_id=99,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.patch(
+        '/api/v1/tickets/2',
+        headers={'Authorization': f'Bearer {token}'},
+        json={'status': 'resolved'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['id'] == 2
+    assert data['status'] == 'resolved'
+    assert data['created_by_id'] == 99
+
+    # Confirma que a alteração foi aplicada ao objeto.
+    assert ticket.status == TicketStatus.RESOLVED
+
+    # Confirma a persistência.
+    mock_session.commit.assert_awaited_once()
+    mock_session.refresh.assert_awaited_once_with(ticket)
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+    compiled = statement.compile()
+    where_sql = str(compiled).split('WHERE')[-1]
+
+    # A consulta deve filtrar pelo chamado, mas não pelo proprietário.
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' not in where_sql
+    assert 2 in compiled.params.values()
+
+
+@pytest.mark.asyncio
 async def test_update_ticket_without_token(
     client: AsyncClient,
     mock_session,
