@@ -1,13 +1,21 @@
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, String, func
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.ticket import Ticket
+
+
+class UserRole(str, Enum):
+    USER = 'user'
+    SUPPORT = 'support'
+    ADMIN = 'admin'
 
 
 class User(Base):
@@ -36,6 +44,17 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(
         default=True,
+        nullable=False,
+    )
+
+    role: Mapped[UserRole] = mapped_column(
+        SQLAlchemyEnum(
+            UserRole,
+            name='user_role',
+            values_callable=lambda enum: [item.value for item in enum],
+        ),
+        default=UserRole.USER,
+        server_default=UserRole.USER.value,
         nullable=False,
     )
 

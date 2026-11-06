@@ -6,7 +6,7 @@ from httpx import AsyncClient
 
 from app.core.security import create_access_token
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 def make_user() -> User:
@@ -16,6 +16,7 @@ def make_user() -> User:
         email='usuario@teste.com',
         hashed_password='hashed-password',
         is_active=True,
+        role=UserRole.USER,
         created_at=datetime.now(UTC),
     )
 

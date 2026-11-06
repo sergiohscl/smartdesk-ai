@@ -7,7 +7,7 @@ from httpx import AsyncClient
 
 from app.core.security import create_access_token, hash_password
 from app.core.settings import get_settings
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 def make_user(is_active: bool = True) -> User:
@@ -17,6 +17,7 @@ def make_user(is_active: bool = True) -> User:
         email='usuario@teste.com',
         hashed_password=hash_password('SenhaSegura123'),
         is_active=is_active,
+        role=UserRole.USER,
         created_at=datetime.now(UTC),
     )
 
@@ -50,6 +51,7 @@ async def test_get_me_success(
     assert data['name'] == user.name
     assert data['email'] == user.email
     assert data['is_active'] is True
+    assert data['role'] == 'user'
     assert 'hashed_password' not in data
 
 

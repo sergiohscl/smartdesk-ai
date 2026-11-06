@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.models.user import UserRole
+
 
 class UserCreate(BaseModel):
     name: str = Field(min_length=3, max_length=150)
@@ -16,6 +18,7 @@ class UserPublic(BaseModel):
     name: str
     email: EmailStr
     is_active: bool
+    role: UserRole
     created_at: datetime
 
 

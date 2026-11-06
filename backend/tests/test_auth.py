@@ -9,7 +9,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models.user import User
+from app.models.user import User, UserRole
 
 
 @pytest.mark.asyncio
@@ -25,6 +25,7 @@ async def test_register_user(
     async def fake_refresh(user):
         user.id = 1
         user.is_active = True
+        user.role = UserRole.USER
         user.created_at = datetime.now(UTC)
         user.updated_at = datetime.now(UTC)
 
@@ -47,12 +48,14 @@ async def test_register_user(
     assert data['name'] == 'Usuario Teste'
     assert data['email'] == 'usuario@teste.com'
     assert data['is_active'] is True
+    assert data['role'] == 'user'
 
     assert 'password' not in data
     assert 'hashed_password' not in data
 
     user = mock_session.add.call_args.args[0]
 
+    assert user.role == UserRole.USER
     assert user.hashed_password != 'SenhaSegura123'
     assert verify_password(
         'SenhaSegura123',
