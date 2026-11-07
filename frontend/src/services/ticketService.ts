@@ -12,6 +12,7 @@ import type {
   TicketUpdate,
 } from "@/types/ticket.types";
 
+
 function mapTicket(ticket: TicketResponse): Ticket {
   return {
     id: String(ticket.id),
@@ -19,10 +20,12 @@ function mapTicket(ticket: TicketResponse): Ticket {
     description: ticket.description,
     status: ticket.status,
     priority: ticket.priority,
+    createdById: ticket.created_by_id,
     createdAt: ticket.created_at,
     updatedAt: ticket.updated_at ?? ticket.created_at,
   };
 }
+
 
 export const ticketService = {
   async createTicket(payload: TicketCreate): Promise<Ticket> {

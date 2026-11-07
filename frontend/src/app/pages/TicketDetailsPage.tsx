@@ -12,6 +12,9 @@ import { DeleteTicketDialog } from "@/app/components/DeleteTicketDialog/DeleteTi
 import { useDeleteTicket } from "@/hooks/useDeleteTicket";
 import { useTicket } from "@/hooks/useTickets";
 
+import { useAuth } from "@/app/providers/AuthProvider";
+import { canManageTicket } from "@/utils/ticketPermissions";
+
 function formatDate(date: string) {
   const parsedDate = new Date(date);
 
@@ -32,6 +35,8 @@ export function TicketDetailsPage() {
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const { user } = useAuth();
 
   const navigate = useNavigate();
   const deleteTicket = useDeleteTicket();
@@ -57,7 +62,11 @@ export function TicketDetailsPage() {
 
   const isEditing = Boolean(ticket && editingTicketId === ticket.id);
 
+  const canManage = ticket ? canManageTicket(user, ticket) : false;
+
   function handleOpenDeleteDialog() {
+    if (!canManage) return;
+
     setDeleteError(null);
     setIsDeleteDialogOpen(true);
   }
@@ -70,7 +79,7 @@ export function TicketDetailsPage() {
   }
 
   async function handleConfirmDelete() {
-    if (!ticket || deleteTicket.isPending) return;
+    if (!ticket || !canManage || deleteTicket.isPending) return;
 
     setDeleteError(null);
 
@@ -136,7 +145,7 @@ export function TicketDetailsPage() {
                 </p>
               </div>
 
-              {!isEditing && (
+              {!isEditing && canManage && (
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
@@ -159,7 +168,7 @@ export function TicketDetailsPage() {
               )}
             </div>
 
-            {isEditing ? (
+            {isEditing && canManage ? (
               <section className="rounded-xl border border-slate-800 bg-slate-900 p-6">
                 <EditTicketForm
                   key={ticket.id}
@@ -224,7 +233,7 @@ export function TicketDetailsPage() {
               </section>
             )}
 
-            {isDeleteDialogOpen && (
+            {isDeleteDialogOpen && canManage && (
               <DeleteTicketDialog
                 ticketTitle={ticket.title}
                 isDeleting={deleteTicket.isPending}
