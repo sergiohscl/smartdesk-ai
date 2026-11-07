@@ -6,10 +6,7 @@ interface DashboardSidebarProps {
   onClose: () => void;
 }
 
-export function DashboardSidebar({
-  isOpen,
-  onClose,
-}: DashboardSidebarProps) {
+export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
   return (
     <>
       {isOpen && (
@@ -48,6 +45,7 @@ export function DashboardSidebar({
         <nav aria-label="Navegação principal" className="space-y-2 p-4">
           <Link
             to="/"
+            activeOptions={{ exact: true }}
             onClick={onClose}
             className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-300 transition hover:bg-slate-800 hover:text-white"
             activeProps={{
@@ -58,14 +56,17 @@ export function DashboardSidebar({
             Dashboard
           </Link>
 
-          <div
-            aria-disabled="true"
-            className="flex cursor-not-allowed items-center gap-3 rounded-lg px-4 py-3 text-slate-500"
+          <Link
+            to="/tickets"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            activeProps={{
+              className: "bg-blue-600 text-white",
+            }}
           >
             <Ticket size={20} />
             Chamados
-            <span className="ml-auto text-xs">Em breve</span>
-          </div>
+          </Link>
         </nav>
       </aside>
     </>

@@ -1,5 +1,8 @@
 import { LogOut, Menu, UserRound } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import {
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 
 import { useAuth } from "@/app/providers/AuthProvider";
 
@@ -12,6 +15,15 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+
+  const pageTitle =
+    pathname === "/tickets" || pathname.startsWith("/tickets/")
+      ? "Chamados"
+      : "Dashboard";
 
   const handleLogout = async () => {
     logout();
@@ -31,7 +43,7 @@ export function DashboardHeader({
         </button>
 
         <h1 className="text-lg font-semibold text-white">
-          Dashboard
+          {pageTitle}
         </h1>
       </div>
 

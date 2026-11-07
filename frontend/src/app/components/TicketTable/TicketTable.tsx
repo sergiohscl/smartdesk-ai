@@ -5,6 +5,8 @@ import { TicketTableRow } from "./TicketTableRow";
 interface TicketTableProps {
   tickets: Ticket[];
   isDemo?: boolean;
+  title?: string;
+  description?: string;
   page: number;
   pageSize: number;
   total: number;
@@ -17,6 +19,8 @@ interface TicketTableProps {
 export function TicketTable({
   tickets,
   isDemo = false,
+  title = "Chamados recentes",
+  description = "Acompanhe os chamados de suporte.",
   page,
   pageSize,
   total,
@@ -44,11 +48,11 @@ export function TicketTable({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 px-6 py-5">
         <div>
           <h3 className="text-lg font-semibold text-white">
-            Chamados recentes
+            {title}
           </h3>
 
           <p className="mt-1 text-sm text-slate-400">
-            Acompanhe os chamados de suporte.
+            {description}
           </p>
         </div>
 
