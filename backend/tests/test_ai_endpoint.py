@@ -242,27 +242,49 @@ async def test_analyze_ticket_ai_service_error(
 
 
 @pytest.mark.asyncio
-async def test_analyze_ticket_other_user_denied(
+async def test_analyze_ticket_other_user_allowed(
     client: AsyncClient,
     mock_session,
     mock_ai_service,
 ):
     user = make_user(user_id=1)
+    ticket = make_ticket(owner_id=99, ticket_id=10)
 
-    # A consulta autorizada não encontra o chamado
-    # porque ele pertence a outro usuário.
-    configure_session(mock_session, user, None)
+    configure_session(mock_session, user, ticket)
 
     token = create_access_token(subject=str(user.id))
 
     response = await client.post(
-        '/api/v1/tickets/10/analyze',
+        f'/api/v1/tickets/{ticket.id}/analyze',
         headers={'Authorization': f'Bearer {token}'},
     )
 
-    assert response.status_code == 404
-    mock_ai_service.analyze_ticket.assert_not_awaited()
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['ticket_id'] == ticket.id
+    assert data['suggested_priority'] == 'high'
+    assert data['suggested_category'] == 'hardware'
+
+    mock_ai_service.analyze_ticket.assert_awaited_once_with(
+        title=ticket.title,
+        description=ticket.description,
+    )
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+    compiled = statement.compile()
+    where_sql = str(compiled).partition('WHERE')[2]
+
+    assert 'tickets.id' in where_sql
+    assert 'tickets.created_by_id' not in where_sql
+
+    assert ticket.id in compiled.params.values()
+    assert user.id not in compiled.params.values()
+
+    mock_session.add.assert_not_called()
     mock_session.commit.assert_not_awaited()
+    mock_session.delete.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -296,7 +318,7 @@ async def test_analyze_ticket_missing_api_key(
 
 
 @pytest.mark.asyncio
-async def test_analyze_ticket_denied_before_ai_initialization(
+async def test_analyze_ticket_not_found_before_ai_initialization(
     client: AsyncClient,
     mock_session,
 ):

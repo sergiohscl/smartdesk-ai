@@ -10,6 +10,7 @@ from app.models.user import User, UserRole
 
 
 def make_user() -> User:
+
     return User(
         id=1,
         name='Usuario Teste',
@@ -22,8 +23,11 @@ def make_user() -> User:
 
 
 def mock_authenticated_user(mock_session, user):
+
     result = MagicMock()
+
     result.scalar_one_or_none.return_value = user
+
     mock_session.execute.return_value = result
 
 
@@ -32,13 +36,19 @@ async def test_create_ticket_success(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     async def refresh_ticket(ticket):
+
         ticket.id = 1
+
         ticket.status = TicketStatus.OPEN
+
         ticket.created_at = datetime.now(UTC)
+
         ticket.updated_at = datetime.now(UTC)
 
     mock_session.refresh.side_effect = refresh_ticket
@@ -60,9 +70,13 @@ async def test_create_ticket_success(
     data = response.json()
 
     assert data['id'] == 1
+
     assert data['title'] == 'Computador não liga'
+
     assert data['status'] == 'open'
+
     assert data['priority'] == 'high'
+
     assert data['created_by_id'] == user.id
 
     mock_session.add.assert_called_once()
@@ -70,9 +84,11 @@ async def test_create_ticket_success(
     created_ticket = mock_session.add.call_args.args[0]
 
     assert created_ticket.created_by_id == user.id
+
     assert created_ticket.priority == TicketPriority.HIGH
 
     mock_session.commit.assert_awaited_once()
+
     mock_session.refresh.assert_awaited_once_with(created_ticket)
 
 
@@ -81,6 +97,7 @@ async def test_create_ticket_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.post(
         '/api/v1/tickets',
         json={
@@ -90,7 +107,9 @@ async def test_create_ticket_without_token(
     )
 
     assert response.status_code == 401
+
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -99,7 +118,9 @@ async def test_create_ticket_invalid_data(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -115,7 +136,9 @@ async def test_create_ticket_invalid_data(
     )
 
     assert response.status_code == 422
+
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -124,7 +147,9 @@ async def test_create_ticket_inactive_user(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     user.is_active = False
 
     mock_authenticated_user(mock_session, user)
@@ -141,7 +166,9 @@ async def test_create_ticket_inactive_user(
     )
 
     assert response.status_code == 403
+
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -150,6 +177,7 @@ async def test_list_tickets_success(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
 
     now = datetime.now(UTC)
@@ -178,21 +206,28 @@ async def test_list_tickets_success(
     ]
 
     # Resultado da autenticação JWT
+
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     # Resultado da listagem de chamados
+
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = tickets
 
     # Primeira consulta: autenticação
+
     # Segunda consulta: listagem
+
     mock_session.execute.side_effect = [
         auth_result,
         tickets_result,
     ]
 
     # Total de registros
+
     mock_session.scalar = AsyncMock(return_value=2)
 
     token = create_access_token(subject=str(user.id))
@@ -207,27 +242,39 @@ async def test_list_tickets_success(
     data = response.json()
 
     assert data['total'] == 2
+
     assert data['page'] == 1
+
     assert data['page_size'] == 10
+
     assert data['pages'] == 1
 
     assert len(data['items']) == 2
 
     assert data['items'][0]['id'] == 1
+
     assert data['items'][0]['title'] == 'Computador não liga'
+
     assert data['items'][0]['status'] == 'open'
+
     assert data['items'][0]['priority'] == 'high'
 
     assert data['items'][1]['id'] == 2
+
     assert data['items'][1]['title'] == 'Erro de conexão'
+
     assert data['items'][1]['status'] == 'in_progress'
 
     # Verificar consultas
+
     assert mock_session.execute.await_count == 2
+
     mock_session.scalar.assert_awaited_once()
 
     # GET não deve alterar o banco
+
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -236,12 +283,15 @@ async def test_list_tickets_pagination(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -263,17 +313,23 @@ async def test_list_tickets_pagination(
     data = response.json()
 
     assert data['total'] == 25
+
     assert data['page'] == 2
+
     assert data['page_size'] == 10
+
     assert data['pages'] == 3
+
     assert data['items'] == []
 
     # Verificar LIMIT e OFFSET da consulta
+
     query = mock_session.execute.await_args_list[1].args[0]
 
     compiled = query.compile()
 
     assert compiled.params['param_1'] == 10
+
     assert compiled.params['param_2'] == 10
 
 
@@ -282,9 +338,11 @@ async def test_list_tickets_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.get('/api/v1/tickets')
 
     assert response.status_code == 401
+
     mock_session.scalar.assert_not_awaited()
 
 
@@ -303,7 +361,9 @@ async def test_list_tickets_invalid_pagination(
     mock_session,
     params: str,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -329,7 +389,9 @@ async def test_list_tickets_invalid_sort(
     mock_session,
     params: str,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -343,22 +405,28 @@ async def test_list_tickets_invalid_sort(
 
 
 @pytest.mark.asyncio
-async def test_list_tickets_filters_by_authenticated_user(
+async def test_list_tickets_global_access_by_user(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
 
+    user.role = UserRole.USER
+
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
         auth_result,
         tickets_result,
     ]
+
     mock_session.scalar = AsyncMock(return_value=0)
 
     token = create_access_token(subject=str(user.id))
@@ -370,33 +438,37 @@ async def test_list_tickets_filters_by_authenticated_user(
 
     assert response.status_code == 200
 
-    # Verificar execução das consultas
+    data = response.json()
+
+    assert data['total'] == 0
+
+    assert data['items'] == []
+
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
-    # Recuperar consultas SQL
     count_call = mock_session.scalar.await_args
-    list_call = mock_session.execute.await_args_list[1]
 
     assert count_call is not None
 
     count_query = count_call.args[0]
-    list_query = list_call.args[0]
 
-    # Compilar consultas
-    count_compiled = count_query.compile()
-    list_compiled = list_query.compile()
+    list_query = mock_session.execute.await_args_list[1].args[0]
 
-    count_sql = str(count_compiled)
-    list_sql = str(list_compiled)
+    count_sql = str(count_query.compile())
 
-    # Verificar filtro por usuário
-    assert 'tickets.created_by_id' in count_sql
-    assert 'tickets.created_by_id' in list_sql
+    list_sql = str(list_query.compile())
 
-    # Verificar ID do usuário nos parâmetros
-    assert user.id in count_compiled.params.values()
-    assert user.id in list_compiled.params.values()
+    # USER também deve consultar a listagem global.
+
+    assert 'tickets.created_by_id' not in count_sql
+
+    assert 'WHERE' not in list_sql.upper()
+
+    mock_session.add.assert_not_called()
+
+    mock_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -419,12 +491,15 @@ async def test_list_tickets_sorting(
     sort_order: str,
     expected_order: str,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -456,6 +531,7 @@ async def test_list_tickets_sorting(
     assert f'tickets.{sort_by} {expected_order}' in sql
 
     # Ordenação secundária determinística
+
     assert 'tickets.id ASC' in sql
 
 
@@ -469,19 +545,24 @@ async def test_list_tickets_global_access_by_role(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
         auth_result,
         tickets_result,
     ]
+
     mock_session.scalar = AsyncMock(return_value=0)
 
     token = create_access_token(subject=str(user.id))
@@ -496,25 +577,33 @@ async def test_list_tickets_global_access_by_role(
     data = response.json()
 
     assert data['total'] == 0
+
     assert data['items'] == []
 
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     count_sql = str(count_query.compile())
+
     list_sql = str(list_query.compile())
 
     # SUPPORT e ADMIN não devem receber filtro por proprietário.
+
     assert 'tickets.created_by_id' not in count_sql
+
     assert 'WHERE' not in list_sql.upper()
 
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -528,19 +617,24 @@ async def test_list_tickets_global_access_with_filters(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
         auth_result,
         tickets_result,
     ]
+
     mock_session.scalar = AsyncMock(return_value=0)
 
     token = create_access_token(subject=str(user.id))
@@ -562,40 +656,56 @@ async def test_list_tickets_global_access_with_filters(
     data = response.json()
 
     assert data['total'] == 0
+
     assert data['page'] == 2
+
     assert data['page_size'] == 5
+
     assert data['items'] == []
 
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     count_compiled = count_query.compile()
+
     list_compiled = list_query.compile()
 
     count_sql = str(count_compiled)
+
     list_sql = str(list_compiled)
 
     # Os filtros solicitados devem existir nas duas consultas.
+
     for sql in (count_sql, list_sql):
         assert 'tickets.status' in sql
+
         assert 'tickets.priority' in sql
+
         assert 'lower(tickets.title)' in sql.lower()
 
         # Não deve existir filtro por proprietário.
+
         assert 'tickets.created_by_id' not in sql.split('WHERE')[-1]
 
     # Verificar parâmetros da busca.
+
     assert '%computador%' in count_compiled.params.values()
+
     assert '%computador%' in list_compiled.params.values()
 
     # Paginação.
+
     assert list_query._limit_clause.value == 5
+
     assert list_query._offset_clause.value == 5
 
 
@@ -622,12 +732,15 @@ async def test_list_tickets_filtering(
     params: dict[str, str],
     expected_filters: set[str],
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -661,11 +774,14 @@ async def test_list_tickets_filtering(
 
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
+
         values = set(compiled.params.values())
 
-        assert 'tickets.created_by_id' in sql
-        assert user.id in values
+        assert 'tickets.created_by_id' not in sql.partition('WHERE')[2]
+
+        assert user.id not in values
 
         for value in expected_filters:
             assert value in values
@@ -693,12 +809,15 @@ async def test_list_tickets_search_by_title(
     search: str,
     expected_pattern: str,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -721,10 +840,13 @@ async def test_list_tickets_search_by_title(
     data = response.json()
 
     assert data['items'] == []
+
     assert data['total'] == 0
+
     assert data['pages'] == 0
 
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
     count_call = mock_session.scalar.await_args
@@ -732,16 +854,22 @@ async def test_list_tickets_search_by_title(
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
+
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
+
         values = compiled.params.values()
 
-        assert 'tickets.created_by_id' in sql
+        assert 'tickets.created_by_id' not in sql.partition('WHERE')[2]
+
         assert 'lower(tickets.title) LIKE lower(' in sql
 
-        assert user.id in values
+        assert user.id not in values
+
         assert expected_pattern in values
 
     mock_session.commit.assert_not_awaited()
@@ -775,12 +903,15 @@ async def test_list_tickets_search_with_filters(
     params: dict[str, str],
     expected_values: set[str],
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -801,22 +932,29 @@ async def test_list_tickets_search_with_filters(
     assert response.status_code == 200
 
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
+
         values = set(compiled.params.values())
 
-        assert 'tickets.created_by_id' in sql
+        assert 'tickets.created_by_id' not in sql.partition('WHERE')[2]
+
         assert 'lower(tickets.title) LIKE lower(' in sql
-        assert user.id in values
+
+        assert user.id not in values
 
         if 'status' in params:
             assert 'tickets.status =' in sql
@@ -835,12 +973,15 @@ async def test_list_tickets_search_pagination(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -867,39 +1008,54 @@ async def test_list_tickets_search_pagination(
     data = response.json()
 
     assert data['items'] == []
+
     assert data['total'] == 25
+
     assert data['page'] == 2
+
     assert data['page_size'] == 10
+
     assert data['pages'] == 3
 
     mock_session.scalar.assert_awaited_once()
+
     assert mock_session.execute.await_count == 2
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
 
-        assert 'tickets.created_by_id' in sql
+        assert 'tickets.created_by_id' not in sql.partition('WHERE')[2]
+
         assert 'lower(tickets.title) LIKE lower(' in sql
-        assert user.id in compiled.params.values()
+
+        assert user.id not in compiled.params.values()
+
         assert '%computador%' in compiled.params.values()
 
     compiled_list = list_query.compile()
+
     sql_list = str(compiled_list)
 
     assert 'LIMIT' in sql_list
+
     assert 'OFFSET' in sql_list
 
     values = list(compiled_list.params.values())
 
     assert 10 in values
+
     assert 'tickets.created_at DESC' in sql_list
+
     assert 'tickets.id ASC' in sql_list
 
     mock_session.commit.assert_not_awaited()
@@ -915,12 +1071,15 @@ async def test_list_tickets_search_empty(
     mock_session,
     search: str,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -941,18 +1100,23 @@ async def test_list_tickets_search_empty(
     assert response.status_code == 200
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
 
-        assert 'tickets.created_by_id' in sql
+        assert 'tickets.created_by_id' not in sql.partition('WHERE')[2]
+
         assert 'lower(tickets.title) LIKE lower(' not in sql
-        assert user.id in compiled.params.values()
+
+        assert user.id not in compiled.params.values()
 
 
 @pytest.mark.asyncio
@@ -970,12 +1134,15 @@ async def test_list_tickets_search_special_characters(
     search: str,
     expected_pattern: str,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -996,18 +1163,23 @@ async def test_list_tickets_search_special_characters(
     assert response.status_code == 200
 
     count_call = mock_session.scalar.await_args
+
     assert count_call is not None
 
     count_query = count_call.args[0]
+
     list_query = mock_session.execute.await_args_list[1].args[0]
 
     for query in (count_query, list_query):
         compiled = query.compile()
+
         sql = str(compiled)
 
         assert 'lower(tickets.title) LIKE lower(' in sql
+
         assert expected_pattern in compiled.params.values()
-        assert user.id in compiled.params.values()
+
+        assert user.id not in compiled.params.values()
 
 
 @pytest.mark.asyncio
@@ -1024,12 +1196,15 @@ async def test_list_tickets_search_length_validation(
     search: str,
     expected_status: int,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     tickets_result = MagicMock()
+
     tickets_result.scalars.return_value.all.return_value = []
 
     mock_session.execute.side_effect = [
@@ -1051,25 +1226,31 @@ async def test_list_tickets_search_length_validation(
 
     if expected_status == 200:
         mock_session.scalar.assert_awaited_once()
+
         assert mock_session.execute.await_count == 2
 
         count_call = mock_session.scalar.await_args
+
         assert count_call is not None
 
         count_query = count_call.args[0]
+
         list_query = mock_session.execute.await_args_list[1].args[0]
 
         for query in (count_query, list_query):
             compiled = query.compile()
 
             assert f'%{search}%' in compiled.params.values()
-            assert user.id in compiled.params.values()
+
+            assert user.id not in compiled.params.values()
 
     else:
         mock_session.scalar.assert_not_awaited()
 
         # A autenticação pode consultar o banco,
+
         # mas a listagem não deve ser executada.
+
         assert mock_session.execute.await_count <= 1
 
     mock_session.commit.assert_not_awaited()
@@ -1090,7 +1271,9 @@ async def test_list_tickets_invalid_filters(
     mock_session,
     params: dict[str, str],
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -1102,6 +1285,7 @@ async def test_list_tickets_invalid_filters(
     )
 
     assert response.status_code == 422
+
     mock_session.scalar.assert_not_awaited()
 
 
@@ -1110,7 +1294,9 @@ async def test_get_ticket_success(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     now = datetime.now(UTC)
 
     ticket = Ticket(
@@ -1125,9 +1311,11 @@ async def test_get_ticket_success(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1147,12 +1335,17 @@ async def test_get_ticket_success(
     data = response.json()
 
     assert data['id'] == 1
+
     assert data['title'] == 'Computador não liga'
+
     assert data['status'] == 'open'
+
     assert data['priority'] == 'high'
+
     assert data['created_by_id'] == user.id
 
     assert mock_session.execute.await_count == 2
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1166,12 +1359,15 @@ async def test_get_ticket_global_access_by_role(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     now = datetime.now(UTC)
 
     # Chamado pertencente a outro usuário.
+
     ticket = Ticket(
         id=2,
         title='Problema na impressora',
@@ -1179,6 +1375,104 @@ async def test_get_ticket_global_access_by_role(
         status=TicketStatus.OPEN,
         priority=TicketPriority.HIGH,
         created_by_id=99,
+        created_at=now,
+        updated_at=now,
+    )
+
+    auth_result = MagicMock()
+
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+
+    ticket_result.scalar_one_or_none.return_value = ticket
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/2',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data['id'] == 2
+
+    assert data['created_by_id'] == 99
+
+    assert data['title'] == 'Problema na impressora'
+
+    assert mock_session.execute.await_count == 2
+
+    statement = mock_session.execute.await_args_list[1].args[0]
+
+    # Deve filtrar pelo ID do chamado, sem restringir proprietário.
+
+    where_sql = str(statement.compile()).split('WHERE')[-1]
+
+    assert 'tickets.id' in where_sql
+
+    assert 'tickets.created_by_id' not in where_sql
+
+    mock_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_not_found(
+    client: AsyncClient,
+    mock_session,
+):
+
+    user = make_user()
+
+    auth_result = MagicMock()
+
+    auth_result.scalar_one_or_none.return_value = user
+
+    ticket_result = MagicMock()
+
+    ticket_result.scalar_one_or_none.return_value = None
+
+    mock_session.execute.side_effect = [
+        auth_result,
+        ticket_result,
+    ]
+
+    token = create_access_token(subject=str(user.id))
+
+    response = await client.get(
+        '/api/v1/tickets/999',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+
+    assert response.status_code == 404
+
+    assert response.json()['detail'] == 'Chamado não encontrado.'
+
+
+@pytest.mark.asyncio
+async def test_get_ticket_other_user(
+    client: AsyncClient,
+    mock_session,
+):
+    user = make_user()
+
+    now = datetime.now(UTC)
+
+    ticket = Ticket(
+        id=2,
+        title='Problema de rede',
+        description='Sem acesso à rede.',
+        status=TicketStatus.OPEN,
+        priority=TicketPriority.MEDIUM,
+        created_by_id=user.id + 1,
         created_at=now,
         updated_at=now,
     )
@@ -1206,99 +1500,22 @@ async def test_get_ticket_global_access_by_role(
     data = response.json()
 
     assert data['id'] == 2
-    assert data['created_by_id'] == 99
-    assert data['title'] == 'Problema na impressora'
+    assert data['title'] == ticket.title
+    assert data['created_by_id'] == ticket.created_by_id
 
     assert mock_session.execute.await_count == 2
 
     statement = mock_session.execute.await_args_list[1].args[0]
-
-    # Deve filtrar pelo ID do chamado, sem restringir proprietário.
-    where_sql = str(statement.compile()).split('WHERE')[-1]
+    compiled = statement.compile()
+    where_sql = str(compiled).partition('WHERE')[2]
 
     assert 'tickets.id' in where_sql
     assert 'tickets.created_by_id' not in where_sql
 
-    mock_session.commit.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_get_ticket_not_found(
-    client: AsyncClient,
-    mock_session,
-):
-    user = make_user()
-
-    auth_result = MagicMock()
-    auth_result.scalar_one_or_none.return_value = user
-
-    ticket_result = MagicMock()
-    ticket_result.scalar_one_or_none.return_value = None
-
-    mock_session.execute.side_effect = [
-        auth_result,
-        ticket_result,
-    ]
-
-    token = create_access_token(subject=str(user.id))
-
-    response = await client.get(
-        '/api/v1/tickets/999',
-        headers={'Authorization': f'Bearer {token}'},
-    )
-
-    assert response.status_code == 404
-    assert response.json()['detail'] == 'Chamado não encontrado.'
-
-
-@pytest.mark.asyncio
-async def test_get_ticket_other_user(
-    client: AsyncClient,
-    mock_session,
-):
-    user = make_user()
-
-    auth_result = MagicMock()
-    auth_result.scalar_one_or_none.return_value = user
-
-    ticket_result = MagicMock()
-    ticket_result.scalar_one_or_none.return_value = None
-
-    mock_session.execute.side_effect = [
-        auth_result,
-        ticket_result,
-    ]
-
-    token = create_access_token(subject=str(user.id))
-
-    response = await client.get(
-        '/api/v1/tickets/2',
-        headers={'Authorization': f'Bearer {token}'},
-    )
-
-    assert response.status_code == 404
-
-    assert mock_session.execute.await_count == 2
-
-    statement = mock_session.execute.await_args_list[1].args[0]
-
-    # USER deve ter a consulta restrita ao ID do chamado
-    # e ao proprietário autenticado.
-    where_sql = str(statement.compile()).split('WHERE')[-1]
-
-    assert 'tickets.id' in where_sql
-    assert 'tickets.created_by_id' in where_sql
-
-    assert mock_session.commit.await_count == 0
-
-    query = mock_session.execute.await_args_list[1].args[0]
-    compiled = query.compile()
-    sql = str(compiled)
-
-    assert 'tickets.id' in sql
-    assert 'tickets.created_by_id' in sql
-    assert user.id in compiled.params.values()
     assert 2 in compiled.params.values()
+    assert user.id not in compiled.params.values()
+
+    mock_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1306,9 +1523,11 @@ async def test_get_ticket_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.get('/api/v1/tickets/1')
 
     assert response.status_code == 401
+
     mock_session.execute.assert_not_awaited()
 
 
@@ -1317,7 +1536,9 @@ async def test_get_ticket_invalid_id(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -1374,7 +1595,9 @@ async def test_update_ticket_success(
     payload: dict,
     expected: dict,
 ):
+
     user = make_user()
+
     now = datetime.now(UTC)
 
     ticket = Ticket(
@@ -1389,9 +1612,11 @@ async def test_update_ticket_success(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1422,11 +1647,13 @@ async def test_update_ticket_success(
                 'status': 'open',
                 'priority': 'high',
             }
+
             assert data[field] == original[field]
 
     assert data['created_by_id'] == user.id
 
     mock_session.commit.assert_awaited_once()
+
     mock_session.refresh.assert_awaited_once_with(ticket)
 
 
@@ -1440,12 +1667,15 @@ async def test_update_ticket_global_access_by_role(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     now = datetime.now(UTC)
 
     # Chamado pertencente a outro usuário.
+
     ticket = Ticket(
         id=2,
         title='Computador não liga',
@@ -1458,9 +1688,11 @@ async def test_update_ticket_global_access_by_role(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1481,25 +1713,35 @@ async def test_update_ticket_global_access_by_role(
     data = response.json()
 
     assert data['id'] == 2
+
     assert data['status'] == 'resolved'
+
     assert data['created_by_id'] == 99
 
     # Confirma que a alteração foi aplicada ao objeto.
+
     assert ticket.status == TicketStatus.RESOLVED
 
     # Confirma a persistência.
+
     mock_session.commit.assert_awaited_once()
+
     mock_session.refresh.assert_awaited_once_with(ticket)
 
     assert mock_session.execute.await_count == 2
 
     statement = mock_session.execute.await_args_list[1].args[0]
+
     compiled = statement.compile()
+
     where_sql = str(compiled).split('WHERE')[-1]
 
     # A consulta deve filtrar pelo chamado, mas não pelo proprietário.
+
     assert 'tickets.id' in where_sql
+
     assert 'tickets.created_by_id' not in where_sql
+
     assert 2 in compiled.params.values()
 
 
@@ -1508,13 +1750,16 @@ async def test_update_ticket_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.patch(
         '/api/v1/tickets/1',
         json={'status': 'resolved'},
     )
 
     assert response.status_code == 401
+
     mock_session.execute.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1525,12 +1770,15 @@ async def test_update_ticket_not_found_or_other_user(
     mock_session,
     ticket_id: int,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = None
 
     mock_session.execute.side_effect = [
@@ -1547,13 +1795,17 @@ async def test_update_ticket_not_found_or_other_user(
     )
 
     assert response.status_code == 404
+
     assert response.json()['detail'] == 'Chamado não encontrado.'
 
     query = mock_session.execute.await_args_list[1].args[0]
+
     compiled = query.compile()
 
     assert 'tickets.created_by_id' in str(compiled)
+
     assert user.id in compiled.params.values()
+
     assert ticket_id in compiled.params.values()
 
     mock_session.commit.assert_not_awaited()
@@ -1579,7 +1831,9 @@ async def test_update_ticket_invalid_data(
     mock_session,
     payload: dict,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -1591,6 +1845,7 @@ async def test_update_ticket_invalid_data(
     )
 
     assert response.status_code == 422
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1599,7 +1854,9 @@ async def test_update_ticket_empty_body(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     now = datetime.now(UTC)
 
     ticket = Ticket(
@@ -1614,9 +1871,11 @@ async def test_update_ticket_empty_body(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1633,9 +1892,11 @@ async def test_update_ticket_empty_body(
     )
 
     assert response.status_code == 200
+
     assert response.json()['title'] == 'Computador não liga'
 
     mock_session.commit.assert_not_awaited()
+
     mock_session.refresh.assert_not_awaited()
 
 
@@ -1644,7 +1905,9 @@ async def test_delete_ticket_success(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     now = datetime.now(UTC)
 
     ticket = Ticket(
@@ -1659,9 +1922,11 @@ async def test_delete_ticket_success(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1677,18 +1942,23 @@ async def test_delete_ticket_success(
     )
 
     assert response.status_code == 204
+
     assert response.content == b''
 
     assert mock_session.execute.await_count == 2
 
     query = mock_session.execute.await_args_list[1].args[0]
+
     compiled = query.compile()
 
     assert 'tickets.created_by_id' in str(compiled)
+
     assert user.id in compiled.params.values()
+
     assert ticket.id in compiled.params.values()
 
     mock_session.delete.assert_awaited_once_with(ticket)
+
     mock_session.commit.assert_awaited_once()
 
 
@@ -1702,12 +1972,15 @@ async def test_delete_ticket_global_access_by_role(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     now = datetime.now(UTC)
 
     # Chamado pertencente a outro usuário.
+
     ticket = Ticket(
         id=2,
         title='Computador não liga',
@@ -1720,9 +1993,11 @@ async def test_delete_ticket_global_access_by_role(
     )
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = ticket
 
     mock_session.execute.side_effect = [
@@ -1738,22 +2013,31 @@ async def test_delete_ticket_global_access_by_role(
     )
 
     # Exclusão bem-sucedida não retorna conteúdo.
+
     assert response.status_code == 204
+
     assert response.content == b''
 
     # Confirma a execução da exclusão.
+
     mock_session.delete.assert_awaited_once_with(ticket)
+
     mock_session.commit.assert_awaited_once()
 
     assert mock_session.execute.await_count == 2
 
     statement = mock_session.execute.await_args_list[1].args[0]
+
     compiled = statement.compile()
+
     where_sql = str(compiled).split('WHERE')[-1]
 
     # SUPPORT e ADMIN não devem ter restrição por proprietário.
+
     assert 'tickets.id' in where_sql
+
     assert 'tickets.created_by_id' not in where_sql
+
     assert ticket.id in compiled.params.values()
 
 
@@ -1767,14 +2051,19 @@ async def test_delete_ticket_global_role_not_found(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     # O chamado solicitado não existe.
+
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = None
 
     mock_session.execute.side_effect = [
@@ -1790,21 +2079,29 @@ async def test_delete_ticket_global_role_not_found(
     )
 
     assert response.status_code == 404
+
     assert response.json()['detail'] == 'Chamado não encontrado.'
 
     assert mock_session.execute.await_count == 2
 
     statement = mock_session.execute.await_args_list[1].args[0]
+
     compiled = statement.compile()
+
     where_sql = str(compiled).split('WHERE')[-1]
 
     # A consulta deve buscar o chamado sem restringir proprietário.
+
     assert 'tickets.id' in where_sql
+
     assert 'tickets.created_by_id' not in where_sql
+
     assert 999 in compiled.params.values()
 
     # Nenhuma exclusão ou persistência deve ocorrer.
+
     mock_session.delete.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1813,12 +2110,15 @@ async def test_delete_ticket_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.delete('/api/v1/tickets/1')
 
     assert response.status_code == 401
 
     mock_session.execute.assert_not_awaited()
+
     mock_session.delete.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1829,12 +2129,15 @@ async def test_delete_ticket_not_found_or_other_user(
     mock_session,
     ticket_id: int,
 ):
+
     user = make_user()
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     ticket_result = MagicMock()
+
     ticket_result.scalar_one_or_none.return_value = None
 
     mock_session.execute.side_effect = [
@@ -1850,16 +2153,21 @@ async def test_delete_ticket_not_found_or_other_user(
     )
 
     assert response.status_code == 404
+
     assert response.json()['detail'] == ('Chamado não encontrado.')
 
     query = mock_session.execute.await_args_list[1].args[0]
+
     compiled = query.compile()
 
     assert 'tickets.created_by_id' in str(compiled)
+
     assert user.id in compiled.params.values()
+
     assert ticket_id in compiled.params.values()
 
     mock_session.delete.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1868,6 +2176,7 @@ async def test_delete_ticket_invalid_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.delete(
         '/api/v1/tickets/1',
         headers={'Authorization': 'Bearer invalid-token'},
@@ -1876,6 +2185,7 @@ async def test_delete_ticket_invalid_token(
     assert response.status_code == 401
 
     mock_session.delete.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1884,7 +2194,9 @@ async def test_delete_ticket_invalid_id(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     mock_authenticated_user(mock_session, user)
 
     token = create_access_token(subject=str(user.id))
@@ -1897,6 +2209,7 @@ async def test_delete_ticket_invalid_id(
     assert response.status_code == 422
 
     mock_session.delete.assert_not_awaited()
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1905,13 +2218,17 @@ async def test_get_ticket_stats_success(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     token = create_access_token(subject=str(user.id))
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     stats_result = MagicMock()
+
     stats_result.one.return_value = MagicMock(
         total=10,
         open=4,
@@ -1930,6 +2247,7 @@ async def test_get_ticket_stats_success(
     )
 
     assert response.status_code == 200
+
     assert response.json() == {
         'total': 10,
         'open': 4,
@@ -1938,6 +2256,7 @@ async def test_get_ticket_stats_success(
     }
 
     assert mock_session.execute.await_count == 2
+
     mock_session.commit.assert_not_awaited()
 
 
@@ -1946,13 +2265,17 @@ async def test_get_ticket_stats_empty(
     client: AsyncClient,
     mock_session,
 ):
+
     user = make_user()
+
     token = create_access_token(subject=str(user.id))
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     stats_result = MagicMock()
+
     stats_result.one.return_value = MagicMock(
         total=0,
         open=0,
@@ -1971,6 +2294,7 @@ async def test_get_ticket_stats_empty(
     )
 
     assert response.status_code == 200
+
     assert response.json() == {
         'total': 0,
         'open': 0,
@@ -1984,11 +2308,13 @@ async def test_get_ticket_stats_without_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.get(
         '/api/v1/tickets/stats',
     )
 
     assert response.status_code == 401
+
     mock_session.execute.assert_not_awaited()
 
 
@@ -1997,22 +2323,23 @@ async def test_get_ticket_stats_invalid_token(
     client: AsyncClient,
     mock_session,
 ):
+
     response = await client.get(
         '/api/v1/tickets/stats',
         headers={'Authorization': 'Bearer invalid-token'},
     )
 
     assert response.status_code == 401
+
     mock_session.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_get_ticket_stats_filters_by_authenticated_user(
+async def test_get_ticket_stats_global_access_by_user(
     client: AsyncClient,
     mock_session,
 ):
     user = make_user()
-    token = create_access_token(subject=str(user.id))
 
     auth_result = MagicMock()
     auth_result.scalar_one_or_none.return_value = user
@@ -2030,20 +2357,32 @@ async def test_get_ticket_stats_filters_by_authenticated_user(
         stats_result,
     ]
 
+    token = create_access_token(subject=str(user.id))
+
     response = await client.get(
         '/api/v1/tickets/stats',
         headers={'Authorization': f'Bearer {token}'},
     )
 
     assert response.status_code == 200
-    assert response.json()['total'] == 5
+
+    assert response.json() == {
+        'total': 5,
+        'open': 2,
+        'in_progress': 1,
+        'resolved': 2,
+    }
+
+    assert mock_session.execute.await_count == 2
 
     statement = mock_session.execute.await_args_list[1].args[0]
 
-    compiled = statement.compile()
+    # USER deve receber estatísticas globais,
+    # sem qualquer restrição por proprietário.
+    assert len(statement._where_criteria) == 0
 
-    assert 'created_by_id' in str(compiled)
-    assert user.id in compiled.params.values()
+    mock_session.add.assert_not_called()
+    mock_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2056,13 +2395,17 @@ async def test_get_ticket_stats_global_access_by_role(
     mock_session,
     role: UserRole,
 ):
+
     user = make_user()
+
     user.role = role
 
     auth_result = MagicMock()
+
     auth_result.scalar_one_or_none.return_value = user
 
     stats_result = MagicMock()
+
     stats_result.one.return_value = MagicMock(
         total=10,
         open=4,
@@ -2098,7 +2441,9 @@ async def test_get_ticket_stats_global_access_by_role(
     statement = mock_session.execute.await_args_list[1].args[0]
 
     # Estatísticas globais não devem ter filtro por proprietário.
+
     assert len(statement._where_criteria) == 0
 
     mock_session.add.assert_not_called()
+
     mock_session.commit.assert_not_awaited()

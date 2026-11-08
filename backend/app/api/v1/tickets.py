@@ -76,10 +76,9 @@ async def list_tickets(
         Query(max_length=200),
     ] = None,
 ) -> TicketListResponse:
+    # Todos os usuários autenticados podem consultar os chamados.
+    # As permissões de edição e exclusão continuam restritas.
     filters = []
-
-    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
-        filters.append(Ticket.created_by_id == current_user.id)
 
     if status is not None:
         filters.append(Ticket.status == status)
@@ -181,10 +180,6 @@ async def get_ticket_stats(
         .label('resolved'),
     )
 
-    # Apenas SUPPORT e ADMIN possuem acesso às estatísticas globais.
-    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
-        statement = statement.where(Ticket.created_by_id == current_user.id)
-
     result = await session.execute(statement)
     stats = result.one()
 
@@ -206,13 +201,10 @@ async def get_ticket(
     session: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> Ticket:
-
+    # Todos os usuários autenticados e ativos podem
+    # visualizar os detalhes de qualquer chamado.
+    # A autenticação continua obrigatória.
     statement = select(Ticket).where(Ticket.id == ticket_id)
-
-    # USER consulta apenas os próprios chamados.
-    # SUPPORT e ADMIN podem consultar qualquer chamado.
-    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
-        statement = statement.where(Ticket.created_by_id == current_user.id)
 
     result = await session.execute(statement)
     ticket = result.scalar_one_or_none()
@@ -308,10 +300,10 @@ async def get_ticket_for_ai_analysis(
             detail='ID do chamado inválido.',
         )
 
+    # A análise de IA é uma operação de leitura.
+    # Qualquer usuário autenticado pode analisar
+    # um chamado existente, independentemente do proprietário.
     statement = select(Ticket).where(Ticket.id == ticket_id)
-
-    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
-        statement = statement.where(Ticket.created_by_id == current_user.id)
 
     result = await session.execute(statement)
     ticket = result.scalar_one_or_none()
