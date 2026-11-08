@@ -1,7 +1,12 @@
-import { Sparkles, Loader2, AlertCircle } from "lucide-react";
+
+import { Sparkles, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import axios from "axios";
 
 import { useAnalyzeTicket } from "@/hooks/useAnalyzeTicket";
+import { useUpdateTicket } from "@/hooks/useUpdateTicket";
+import { useTicket } from "@/hooks/useTickets";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { canManageTicket } from "@/utils/ticketPermissions";
 
 import type { AITicketCategory } from "@/types/ai.types";
 import type { TicketPriority } from "@/types/ticket.types";
@@ -29,16 +34,54 @@ export function TicketAIAnalysis({
   ticketId,
 }: TicketAIAnalysisProps) {
   const analysis = useAnalyzeTicket();
+  const updateTicket = useUpdateTicket();
+  const { data: ticket } = useTicket(ticketId);
+
+  const { user } = useAuth();
+
+  // A assinatura exata será conferida com a página de detalhes.
+  const canManage = Boolean(
+    user && ticket && canManageTicket(user, ticket),
+  );
 
   const result =
     analysis.data?.ticket_id === Number(ticketId)
       ? analysis.data
       : null;
 
-  function handleAnalyze() {
-    if (analysis.isPending) return;
+  const isPriorityApplied =
+    Boolean(
+      result &&
+        ticket &&
+        ticket.priority === result.suggested_priority,
+    );
 
+  const canApplyPriority =
+    Boolean(result && ticket && canManage) &&
+    !isPriorityApplied &&
+    !analysis.isPending &&
+    !updateTicket.isPending;
+
+  function handleAnalyze() {
+    if (analysis.isPending || updateTicket.isPending) {
+      return;
+    }
+
+    updateTicket.reset();
     analysis.mutate(ticketId);
+  }
+
+  function handleApplyPriority() {
+    if (!result || !ticket || !canApplyPriority) {
+      return;
+    }
+
+    updateTicket.mutate({
+      ticketId,
+      payload: {
+        priority: result.suggested_priority,
+      },
+    });
   }
 
   const isServiceUnavailable =
@@ -68,7 +111,7 @@ export function TicketAIAnalysis({
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={analysis.isPending}
+          disabled={analysis.isPending || updateTicket.isPending}
           className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {analysis.isPending ? (
@@ -142,9 +185,58 @@ export function TicketAIAnalysis({
             </p>
           </div>
 
+          {canManage && !isPriorityApplied && (
+            <button
+              type="button"
+              onClick={handleApplyPriority}
+              disabled={!canApplyPriority}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {updateTicket.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <CheckCircle2 size={16} />
+              )}
+
+              {updateTicket.isPending
+                ? "Aplicando prioridade..."
+                : "Aplicar prioridade sugerida"}
+            </button>
+          )}
+
+          {isPriorityApplied && (
+            <div
+              role="status"
+              className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400"
+            >
+              <CheckCircle2 size={18} className="shrink-0" />
+
+              <p>
+                {updateTicket.isSuccess
+                  ? "Prioridade aplicada com sucesso."
+                  : "O chamado já possui a prioridade sugerida pela IA."}
+              </p>
+            </div>
+          )}
+
+          {updateTicket.isError && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400"
+            >
+              <AlertCircle size={18} className="shrink-0" />
+
+              <p>
+                Não foi possível aplicar a prioridade sugerida.
+                Tente novamente.
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-slate-500">
-            Esta análise é apenas uma sugestão.
-            Nenhuma informação do chamado foi alterada.
+            A análise da IA é apenas uma sugestão.
+            A prioridade do chamado só será alterada
+            mediante uma ação autorizada do usuário.
           </p>
         </div>
       )}
