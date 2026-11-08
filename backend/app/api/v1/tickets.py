@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ai_dependencies import get_ai_service
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User, UserRole
+from app.schemas.ai import AIAnalysisResponse
 from app.schemas.ticket import (
     TicketCreate,
     TicketListResponse,
@@ -15,6 +17,7 @@ from app.schemas.ticket import (
     TicketStats,
     TicketUpdate,
 )
+from app.services.ai_service import AIService, AIServiceError
 
 router = APIRouter(
     prefix='/tickets',
@@ -292,3 +295,62 @@ async def delete_ticket(
     await session.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+async def get_ticket_for_ai_analysis(
+    ticket_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> Ticket:
+    if ticket_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='ID do chamado inválido.',
+        )
+
+    statement = select(Ticket).where(Ticket.id == ticket_id)
+
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        statement = statement.where(Ticket.created_by_id == current_user.id)
+
+    result = await session.execute(statement)
+    ticket = result.scalar_one_or_none()
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    return ticket
+
+
+@router.post(
+    '/{ticket_id}/analyze',
+    response_model=AIAnalysisResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def analyze_ticket(
+    ticket: Annotated[Ticket, Depends(get_ticket_for_ai_analysis)],
+    ai_service: Annotated[AIService, Depends(get_ai_service)],
+) -> AIAnalysisResponse:
+    try:
+        classification = await ai_service.analyze_ticket(
+            title=ticket.title,
+            description=ticket.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='Os dados do chamado não podem ser analisados.',
+        ) from exc
+    except AIServiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Serviço de análise com IA indisponível.',
+        ) from exc
+
+    return AIAnalysisResponse(
+        ticket_id=ticket.id,
+        **classification.model_dump(),
+    )
