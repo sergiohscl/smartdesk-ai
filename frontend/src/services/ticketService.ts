@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import type { AIAnalysisResponse } from "@/types/ai.types";
 
 import type {
   Ticket,
@@ -51,6 +52,14 @@ export const ticketService = {
     const { data } = await api.get<TicketResponse>(`/tickets/${ticketId}`);
 
     return mapTicket(data);
+  },
+
+  async analyzeTicket(ticketId: string): Promise<AIAnalysisResponse> {
+    const { data } = await api.post<AIAnalysisResponse>(
+      `/tickets/${ticketId}/analyze`,
+    );
+
+    return data;
   },
 
   async getStats(): Promise<TicketStatsData> {
