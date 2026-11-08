@@ -15,7 +15,15 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = 'HS256'
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Configurações da Inteligência Artificial
+    OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str = 'gpt-6-luna'
+    AI_TIMEOUT_SECONDS: int = 15
+    AI_MAX_OUTPUT_TOKENS: int = 300
+    AI_MAX_DESCRIPTION_CHARS: int = 4000
+    AI_DAILY_USER_LIMIT: int = 20
+
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings()  # pyright: ignore[reportCallIssue]
