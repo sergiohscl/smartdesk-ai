@@ -47,3 +47,12 @@ class AIAnalysisHistoryResponse(BaseModel):
     page: int = Field(ge=1)
     page_size: int = Field(ge=1, le=100)
     pages: int = Field(ge=0)
+
+
+class AIAnalysisApplyResponse(BaseModel):
+    analysis_id: int = Field(gt=0)
+    ticket_id: int = Field(gt=0)
+    previous_priority: TicketPriority
+    applied_priority: TicketPriority
+    applied_at: datetime
+    applied_by_id: int = Field(gt=0)

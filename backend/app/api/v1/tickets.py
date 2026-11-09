@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -11,6 +12,7 @@ from app.models.ai_analysis import AIAnalysis
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User, UserRole
 from app.schemas.ai import (
+    AIAnalysisApplyResponse,
     AIAnalysisHistoryItem,
     AIAnalysisHistoryResponse,
     AIAnalysisResponse,
@@ -456,4 +458,93 @@ async def get_ticket_ai_analyses(
         page=page,
         page_size=page_size,
         pages=pages,
+    )
+
+
+@router.post(
+    '/{ticket_id}/analyses/{analysis_id}/apply',
+    response_model=AIAnalysisApplyResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def apply_ai_analysis(
+    ticket_id: int,
+    analysis_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AIAnalysisApplyResponse:
+    if ticket_id <= 0 or analysis_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='ID do chamado ou da análise inválido.',
+        )
+
+    # Bloquear primeiro o chamado para serializar aplicações
+    # concorrentes de diferentes análises do mesmo chamado.
+    ticket_statement = (
+        select(Ticket)
+        .where(Ticket.id == ticket_id)
+        .with_for_update()
+    )
+
+    # USER só pode modificar chamados próprios.
+    # SUPPORT e ADMIN podem modificar qualquer chamado.
+    if current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}:
+        ticket_statement = ticket_statement.where(
+            Ticket.created_by_id == current_user.id,
+        )
+
+    ticket_result = await session.execute(ticket_statement)
+    ticket = ticket_result.scalar_one_or_none()
+
+    if ticket is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    # Bloquear a análise depois do chamado.
+    analysis_statement = (
+        select(AIAnalysis)
+        .where(
+            AIAnalysis.id == analysis_id,
+            AIAnalysis.ticket_id == ticket_id,
+        )
+        .with_for_update()
+    )
+
+    analysis_result = await session.execute(analysis_statement)
+    analysis = analysis_result.scalar_one_or_none()
+
+    if analysis is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Análise não encontrada para este chamado.',
+        )
+
+    if analysis.applied_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail='Esta análise já foi aplicada.',
+        )
+
+    previous_priority = ticket.priority
+    applied_at = datetime.now(UTC)
+
+    ticket.priority = analysis.suggested_priority
+    analysis.applied_at = applied_at
+    analysis.applied_by_id = current_user.id
+
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+    return AIAnalysisApplyResponse(
+        analysis_id=analysis.id,
+        ticket_id=ticket.id,
+        previous_priority=previous_priority,
+        applied_priority=analysis.suggested_priority,
+        applied_at=applied_at,
+        applied_by_id=current_user.id,
     )
