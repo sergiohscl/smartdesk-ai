@@ -10,7 +10,11 @@ from app.core.dependencies import get_current_user
 from app.models.ai_analysis import AIAnalysis
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User, UserRole
-from app.schemas.ai import AIAnalysisResponse
+from app.schemas.ai import (
+    AIAnalysisHistoryItem,
+    AIAnalysisHistoryResponse,
+    AIAnalysisResponse,
+)
 from app.schemas.ticket import (
     TicketCreate,
     TicketListResponse,
@@ -377,4 +381,79 @@ async def analyze_ticket(
     return AIAnalysisResponse(
         ticket_id=ticket.id,
         **classification.model_dump(),
+    )
+
+
+@router.get(
+    '/{ticket_id}/analyses',
+    response_model=AIAnalysisHistoryResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_ticket_ai_analyses(
+    ticket_id: int,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> AIAnalysisHistoryResponse:
+    if ticket_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail='ID do chamado inválido.',
+        )
+
+    # A consulta ao histórico segue a política de leitura:
+    # qualquer usuário autenticado e ativo pode consultar
+    # o histórico de um chamado existente.
+    ticket_statement = select(Ticket.id).where(
+        Ticket.id == ticket_id,
+    )
+
+    ticket_result = await session.execute(ticket_statement)
+
+    if ticket_result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Chamado não encontrado.',
+        )
+
+    # Contar as análises vinculadas ao chamado.
+    count_statement = (
+        select(func.count(AIAnalysis.id))
+        .where(AIAnalysis.ticket_id == ticket_id)
+    )
+
+    total = await session.scalar(count_statement)
+    total = total or 0
+
+    # Paginar e ordenar da mais recente para a mais antiga.
+    offset = (page - 1) * page_size
+
+    history_statement = (
+        select(AIAnalysis)
+        .where(AIAnalysis.ticket_id == ticket_id)
+        .order_by(
+            AIAnalysis.created_at.desc(),
+            AIAnalysis.id.desc(),
+        )
+        .offset(offset)
+        .limit(page_size)
+    )
+
+    result = await session.execute(history_statement)
+    analyses = result.scalars().all()
+
+    items = [
+        AIAnalysisHistoryItem.model_validate(analysis)
+        for analysis in analyses
+    ]
+
+    pages = (total + page_size - 1) // page_size
+
+    return AIAnalysisHistoryResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
     )

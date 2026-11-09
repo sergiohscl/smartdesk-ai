@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -26,3 +27,23 @@ class AIClassification(BaseModel):
 
 class AIAnalysisResponse(AIClassification):
     ticket_id: int = Field(gt=0)
+
+
+class AIAnalysisHistoryItem(AIClassification):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(gt=0)
+    ticket_id: int = Field(gt=0)
+    priority_at_analysis: TicketPriority
+    analyzed_by_id: int = Field(gt=0)
+    created_at: datetime
+    applied_at: datetime | None = None
+    applied_by_id: int | None = Field(default=None, gt=0)
+
+
+class AIAnalysisHistoryResponse(BaseModel):
+    items: list[AIAnalysisHistoryItem]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+    pages: int = Field(ge=0)
