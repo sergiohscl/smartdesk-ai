@@ -8,6 +8,7 @@ from app.core.ai_dependencies import get_ai_service
 from app.core.security import create_access_token
 from app.core.settings import get_settings
 from app.main import app
+from app.models.ai_analysis import AIAnalysis
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User, UserRole
 from app.schemas.ai import AIClassification, AITicketCategory
@@ -103,9 +104,31 @@ async def test_analyze_own_ticket_success(
         description=ticket.description,
     )
 
-    mock_session.add.assert_not_called()
-    mock_session.commit.assert_not_awaited()
+    # Verificar persistência da análise.
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_awaited_once()
+    mock_session.rollback.assert_not_awaited()
     mock_session.delete.assert_not_awaited()
+
+    # Inspecionar o objeto enviado para persistência.
+    saved_analysis = mock_session.add.call_args.args[0]
+
+    assert isinstance(saved_analysis, AIAnalysis)
+    assert saved_analysis.ticket_id == ticket.id
+    assert saved_analysis.suggested_priority == TicketPriority.HIGH
+    assert saved_analysis.suggested_category == 'hardware'
+    assert saved_analysis.reason == (
+        'Possível falha física no computador.'
+    )
+    assert saved_analysis.priority_at_analysis == TicketPriority.MEDIUM
+    assert saved_analysis.analyzed_by_id == user.id
+
+    # A análise ainda não foi aplicada ao chamado.
+    assert saved_analysis.applied_at is None
+    assert saved_analysis.applied_by_id is None
+
+    # A prioridade original deve permanecer inalterada.
+    assert ticket.priority == TicketPriority.MEDIUM
 
 
 @pytest.mark.asyncio
@@ -266,12 +289,15 @@ async def test_analyze_ticket_other_user_allowed(
     assert data['ticket_id'] == ticket.id
     assert data['suggested_priority'] == 'high'
     assert data['suggested_category'] == 'hardware'
+    assert data['reason'] == 'Possível falha física no computador.'
 
     mock_ai_service.analyze_ticket.assert_awaited_once_with(
         title=ticket.title,
         description=ticket.description,
     )
 
+    # Verificar que a consulta não restringe
+    # o chamado ao proprietário.
     statement = mock_session.execute.await_args_list[1].args[0]
     compiled = statement.compile()
     where_sql = str(compiled).partition('WHERE')[2]
@@ -282,9 +308,32 @@ async def test_analyze_ticket_other_user_allowed(
     assert ticket.id in compiled.params.values()
     assert user.id not in compiled.params.values()
 
-    mock_session.add.assert_not_called()
-    mock_session.commit.assert_not_awaited()
+    # Confirmar a persistência da análise.
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_awaited_once()
+    mock_session.rollback.assert_not_awaited()
     mock_session.delete.assert_not_awaited()
+
+    saved_analysis = mock_session.add.call_args.args[0]
+
+    assert isinstance(saved_analysis, AIAnalysis)
+    assert saved_analysis.ticket_id == ticket.id
+    assert saved_analysis.suggested_priority == TicketPriority.HIGH
+    assert saved_analysis.suggested_category == 'hardware'
+    assert saved_analysis.reason == (
+        'Possível falha física no computador.'
+    )
+    assert saved_analysis.priority_at_analysis == TicketPriority.MEDIUM
+
+    # Quem solicitou a análise foi o usuário autenticado,
+    # não o proprietário do chamado.
+    assert saved_analysis.analyzed_by_id == user.id
+    assert saved_analysis.analyzed_by_id != ticket.created_by_id
+
+    # A recomendação não deve ser aplicada automaticamente.
+    assert saved_analysis.applied_at is None
+    assert saved_analysis.applied_by_id is None
+    assert ticket.priority == TicketPriority.MEDIUM
 
 
 @pytest.mark.asyncio
@@ -346,3 +395,41 @@ async def test_analyze_ticket_not_found_before_ai_initialization(
         assert dependency_called is False
     finally:
         app.dependency_overrides.pop(get_ai_service, None)
+
+
+@pytest.mark.asyncio
+async def test_analyze_ticket_database_commit_failure(
+    client: AsyncClient,
+    mock_session,
+    mock_ai_service,
+):
+    user = make_user()
+    ticket = make_ticket(owner_id=user.id)
+
+    configure_session(mock_session, user, ticket)
+
+    mock_session.commit.side_effect = RuntimeError(
+        'Falha simulada no banco.'
+    )
+
+    token = create_access_token(subject=str(user.id))
+
+    with pytest.raises(RuntimeError, match='Falha simulada'):
+        await client.post(
+            f'/api/v1/tickets/{ticket.id}/analyze',
+            headers={'Authorization': f'Bearer {token}'},
+        )
+
+    mock_ai_service.analyze_ticket.assert_awaited_once()
+    mock_session.add.assert_called_once()
+    mock_session.commit.assert_awaited_once()
+    mock_session.rollback.assert_awaited_once()
+
+    saved_analysis = mock_session.add.call_args.args[0]
+
+    assert isinstance(saved_analysis, AIAnalysis)
+    assert saved_analysis.ticket_id == ticket.id
+    assert saved_analysis.analyzed_by_id == user.id
+
+    # A recomendação não altera automaticamente o chamado.
+    assert ticket.priority == TicketPriority.MEDIUM

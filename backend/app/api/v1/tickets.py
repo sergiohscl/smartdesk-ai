@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.ai_dependencies import get_ai_service
 from app.core.database import get_session
 from app.core.dependencies import get_current_user
+from app.models.ai_analysis import AIAnalysis
 from app.models.ticket import Ticket, TicketPriority, TicketStatus
 from app.models.user import User, UserRole
 from app.schemas.ai import AIAnalysisResponse
@@ -323,8 +324,22 @@ async def get_ticket_for_ai_analysis(
     status_code=status.HTTP_200_OK,
 )
 async def analyze_ticket(
-    ticket: Annotated[Ticket, Depends(get_ticket_for_ai_analysis)],
-    ai_service: Annotated[AIService, Depends(get_ai_service)],
+    ticket: Annotated[
+        Ticket,
+        Depends(get_ticket_for_ai_analysis),
+    ],
+    ai_service: Annotated[
+        AIService,
+        Depends(get_ai_service),
+    ],
+    session: Annotated[
+        AsyncSession,
+        Depends(get_session),
+    ],
+    current_user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
 ) -> AIAnalysisResponse:
     try:
         classification = await ai_service.analyze_ticket(
@@ -341,6 +356,23 @@ async def analyze_ticket(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail='Serviço de análise com IA indisponível.',
         ) from exc
+
+    analysis = AIAnalysis(
+        ticket_id=ticket.id,
+        suggested_priority=classification.suggested_priority,
+        suggested_category=classification.suggested_category.value,
+        reason=classification.reason,
+        priority_at_analysis=ticket.priority,
+        analyzed_by_id=current_user.id,
+    )
+
+    session.add(analysis)
+
+    try:
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
     return AIAnalysisResponse(
         ticket_id=ticket.id,
