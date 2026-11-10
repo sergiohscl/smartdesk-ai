@@ -225,3 +225,76 @@ async def test_ai_service_api_status_error(
             title='Falha no sistema',
             description='Sistema indisponível.',
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('exception', 'expected_message'),
+    [
+        (
+            APITimeoutError(request=MagicMock()),
+            'categoria=timeout',
+        ),
+        (
+            APIConnectionError(request=MagicMock()),
+            'categoria=connection',
+        ),
+        (
+            RuntimeError('Sensitive provider details'),
+            'categoria=unexpected',
+        ),
+    ],
+)
+async def test_ai_service_safe_error_logging(
+    ai_service,
+    ai_client,
+    caplog,
+    exception,
+    expected_message,
+):
+    ai_client.responses.parse.side_effect = exception
+
+    with pytest.raises(AIServiceError):
+        await ai_service.analyze_ticket(
+            title='Título confidencial',
+            description='Descrição confidencial',
+        )
+
+    assert expected_message in caplog.text
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+    assert 'Sensitive provider details' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_safe_http_status_logging(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    request = httpx2.Request(
+        'POST',
+        'https://api.openai.com/v1/responses',
+    )
+
+    response = httpx2.Response(
+        status_code=429,
+        request=request,
+    )
+
+    ai_client.responses.parse.side_effect = APIStatusError(
+        'Sensitive provider response',
+        response=response,
+        body=None,
+    )
+
+    with pytest.raises(AIServiceError):
+        await ai_service.analyze_ticket(
+            title='Título confidencial',
+            description='Descrição confidencial',
+        )
+
+    assert 'categoria=api_status status=429' in caplog.text
+    assert 'Sensitive provider response' not in caplog.text
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
