@@ -1,5 +1,8 @@
 # 🚀 SMARTDESK AI
 
+[![SMARTDESK AI - CI/CD](https://github.com/sergiohscl/smartdesk-ai/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/sergiohscl/smartdesk-ai/actions/workflows/ci-cd.yml)
+
+
 ### 🎫 Sistema inteligente de gerenciamento de chamados com Inteligência Artificial
 
 O **SMARTDESK AI** é uma aplicação Full Stack desenvolvida para facilitar o gerenciamento de chamados de suporte técnico, combinando uma interface moderna, autenticação segura, controle de permissões e recursos de Inteligência Artificial.
@@ -31,6 +34,8 @@ O objetivo do projeto é evoluir um sistema tradicional de chamados para uma pla
 ### 🐳 Infraestrutura
 - Docker
 - Docker Compose
+- GitHub Actions (CI/CD)
+- Docker Hub (registro de imagens)
 - Nginx
 - PostgreSQL com volume persistente
 
@@ -83,6 +88,37 @@ A IA atua como ferramenta de apoio à decisão. A aplicação da prioridade suge
 | Analisar próprios chamados com IA | ✅ | ✅ | ✅ |
 | Analisar chamados de terceiros com IA | ❌ | ✅ | ✅ |
 | Aplicar prioridade em chamados de terceiros | ❌ | ✅ | ✅ |
+
+## 🔄 CI/CD — GitHub Actions e Docker Hub
+
+O SMARTDESK AI possui uma esteira automatizada em [GitHub Actions](https://github.com/sergiohscl/smartdesk-ai/actions/workflows/ci-cd.yml), definida em `.github/workflows/ci-cd.yml`.
+
+| Job | Verificações |
+|---|---|
+| 🐍 **Backend** | Python 3.13, Poetry, Ruff (lint e formatação) e Pytest |
+| ⚛️ **Frontend** | Node.js 24, `npm ci`, TypeScript, ESLint e build Vite |
+| 🐳 **Docker** | Build das imagens de backend e frontend; publicação no Docker Hub somente em push para `main` |
+
+- **Pull requests para `main`:** executam os testes e validam os builds Docker, sem publicar imagens.
+- **Pushes para `main`:** publicam as imagens somente depois da aprovação dos jobs de backend e frontend (dependência `needs`).
+- **Credenciais:** autenticação no Docker Hub com os secrets `DOCKER_USERNAME` e `DOCKER_TOKEN` do GitHub Actions. Não inclua credenciais no repositório.
+- **Tags:** cada imagem é publicada como `latest` e `sha-<commit-sha>`, permitindo identificar a versão gerada por cada commit.
+
+### 📦 Imagens no Docker Hub
+
+| Serviço | Repositório |
+|---|---|
+| Backend — FastAPI | [sergiohscl/smartdesk-ai-backend](https://hub.docker.com/r/sergiohscl/smartdesk-ai-backend) |
+| Frontend — React + Nginx | [sergiohscl/smartdesk-ai-frontend](https://hub.docker.com/r/sergiohscl/smartdesk-ai-frontend) |
+
+Para baixar as versões mais recentes:
+
+```bash
+docker pull sergiohscl/smartdesk-ai-backend:latest
+docker pull sergiohscl/smartdesk-ai-frontend:latest
+```
+
+> ℹ️ O CI/CD automatiza testes, builds e **publicação de imagens**. O **deploy automático em servidor de produção ainda não foi implementado**. Para executar a aplicação completa localmente, siga as instruções do Docker Compose abaixo.
 
 ## 🐳 Executando com Docker
 
@@ -207,6 +243,9 @@ smartdesk-ai/
 │   ├── Dockerfile
 │   └── nginx.conf
 │
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml
 ├── compose.yml
 ├── .gitignore
 └── README.md
