@@ -368,9 +368,7 @@ async def test_apply_ai_analysis_commit_failure(
 
     configure_session(mock_session, user, ticket, analysis)
 
-    mock_session.commit.side_effect = RuntimeError(
-        'Falha simulada no banco.'
-    )
+    mock_session.commit.side_effect = RuntimeError('Falha simulada no banco.')
 
     with pytest.raises(RuntimeError, match='Falha simulada'):
         await client.post(

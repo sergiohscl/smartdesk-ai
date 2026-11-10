@@ -429,9 +429,8 @@ async def get_ticket_ai_analyses(
         )
 
     # Contar as análises vinculadas ao chamado.
-    count_statement = (
-        select(func.count(AIAnalysis.id))
-        .where(AIAnalysis.ticket_id == ticket_id)
+    count_statement = select(func.count(AIAnalysis.id)).where(
+        AIAnalysis.ticket_id == ticket_id
     )
 
     total = await session.scalar(count_statement)
@@ -455,8 +454,7 @@ async def get_ticket_ai_analyses(
     analyses = result.scalars().all()
 
     items = [
-        AIAnalysisHistoryItem.model_validate(analysis)
-        for analysis in analyses
+        AIAnalysisHistoryItem.model_validate(analysis) for analysis in analyses
     ]
 
     pages = (total + page_size - 1) // page_size
@@ -490,9 +488,7 @@ async def apply_ai_analysis(
     # Bloquear primeiro o chamado para serializar aplicações
     # concorrentes de diferentes análises do mesmo chamado.
     ticket_statement = (
-        select(Ticket)
-        .where(Ticket.id == ticket_id)
-        .with_for_update()
+        select(Ticket).where(Ticket.id == ticket_id).with_for_update()
     )
 
     # USER só pode modificar chamados próprios.

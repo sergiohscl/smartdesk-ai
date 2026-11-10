@@ -127,9 +127,7 @@ async def test_analyze_own_ticket_success(
     assert saved_analysis.ticket_id == ticket.id
     assert saved_analysis.suggested_priority == TicketPriority.HIGH
     assert saved_analysis.suggested_category == 'hardware'
-    assert saved_analysis.reason == (
-        'Possível falha física no computador.'
-    )
+    assert saved_analysis.reason == ('Possível falha física no computador.')
     assert saved_analysis.priority_at_analysis == TicketPriority.MEDIUM
     assert saved_analysis.analyzed_by_id == user.id
 
@@ -393,9 +391,7 @@ async def test_analyze_ticket_database_commit_failure(
 
     configure_session(mock_session, user, ticket)
 
-    mock_session.commit.side_effect = RuntimeError(
-        'Falha simulada no banco.'
-    )
+    mock_session.commit.side_effect = RuntimeError('Falha simulada no banco.')
 
     token = create_access_token(subject=str(user.id))
 

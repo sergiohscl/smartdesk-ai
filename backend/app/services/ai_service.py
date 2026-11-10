@@ -62,17 +62,13 @@ class AIService:
             )
 
         except APITimeoutError as exc:
-            logger.warning(
-                'Falha na OpenAI: categoria=timeout'
-            )
+            logger.warning('Falha na OpenAI: categoria=timeout')
             raise AIServiceError(
                 'Tempo limite excedido na análise do chamado.'
             ) from exc
 
         except APIConnectionError as exc:
-            logger.warning(
-                'Falha na OpenAI: categoria=connection'
-            )
+            logger.warning('Falha na OpenAI: categoria=connection')
             raise AIServiceError(
                 'Não foi possível conectar ao serviço de IA.'
             ) from exc
@@ -82,14 +78,10 @@ class AIService:
                 'Falha na OpenAI: categoria=api_status status=%s',
                 exc.status_code,
             )
-            raise AIServiceError(
-                'O serviço de IA retornou um erro.'
-            ) from exc
+            raise AIServiceError('O serviço de IA retornou um erro.') from exc
 
         except Exception as exc:
-            logger.warning(
-                'Falha na OpenAI: categoria=unexpected'
-            )
+            logger.warning('Falha na OpenAI: categoria=unexpected')
             raise AIServiceError(
                 'Não foi possível analisar o chamado.'
             ) from exc
