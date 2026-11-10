@@ -26,6 +26,7 @@ class AIClassification(BaseModel):
 
 
 class AIAnalysisResponse(AIClassification):
+    analysis_id: int = Field(gt=0)
     ticket_id: int = Field(gt=0)
 
 

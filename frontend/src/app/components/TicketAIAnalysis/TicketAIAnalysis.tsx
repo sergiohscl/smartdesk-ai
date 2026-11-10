@@ -1,9 +1,8 @@
-
 import { Sparkles, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import axios from "axios";
 
 import { useAnalyzeTicket } from "@/hooks/useAnalyzeTicket";
-import { useUpdateTicket } from "@/hooks/useUpdateTicket";
+import { useApplyAIAnalysis } from "@/hooks/useApplyAIAnalysis";
 import { useTicket } from "@/hooks/useTickets";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { canManageTicket } from "@/utils/ticketPermissions";
@@ -30,44 +29,37 @@ const priorityLabels: Record<TicketPriority, string> = {
   critical: "Crítica",
 };
 
-export function TicketAIAnalysis({
-  ticketId,
-}: TicketAIAnalysisProps) {
+export function TicketAIAnalysis({ ticketId }: TicketAIAnalysisProps) {
   const analysis = useAnalyzeTicket();
-  const updateTicket = useUpdateTicket();
+  const applyAIAnalysis = useApplyAIAnalysis();
   const { data: ticket } = useTicket(ticketId);
 
   const { user } = useAuth();
 
   // A assinatura exata será conferida com a página de detalhes.
-  const canManage = Boolean(
-    user && ticket && canManageTicket(user, ticket),
-  );
+  const canManage = Boolean(user && ticket && canManageTicket(user, ticket));
 
   const result =
-    analysis.data?.ticket_id === Number(ticketId)
-      ? analysis.data
-      : null;
+    analysis.data?.ticket_id === Number(ticketId) ? analysis.data : null;
 
-  const isPriorityApplied =
-    Boolean(
-      result &&
-        ticket &&
-        ticket.priority === result.suggested_priority,
-    );
+  const isPriorityApplied = Boolean(
+    result &&
+    applyAIAnalysis.isSuccess &&
+    applyAIAnalysis.data?.analysis_id === result.analysis_id,
+  );
 
   const canApplyPriority =
     Boolean(result && ticket && canManage) &&
     !isPriorityApplied &&
     !analysis.isPending &&
-    !updateTicket.isPending;
+    !applyAIAnalysis.isPending;
 
   function handleAnalyze() {
-    if (analysis.isPending || updateTicket.isPending) {
+    if (analysis.isPending || applyAIAnalysis.isPending) {
       return;
     }
 
-    updateTicket.reset();
+    applyAIAnalysis.reset();
     analysis.mutate(ticketId);
   }
 
@@ -76,17 +68,19 @@ export function TicketAIAnalysis({
       return;
     }
 
-    updateTicket.mutate({
+    applyAIAnalysis.mutate({
       ticketId,
-      payload: {
-        priority: result.suggested_priority,
-      },
+      analysisId: result.analysis_id,
     });
   }
 
   const isServiceUnavailable =
     axios.isAxiosError(analysis.error) &&
     analysis.error.response?.status === 503;
+
+  const applyErrorStatus = axios.isAxiosError(applyAIAnalysis.error)
+    ? applyAIAnalysis.error.response?.status
+    : undefined;
 
   return (
     <section
@@ -111,7 +105,7 @@ export function TicketAIAnalysis({
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={analysis.isPending || updateTicket.isPending}
+          disabled={analysis.isPending || applyAIAnalysis.isPending}
           className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {analysis.isPending ? (
@@ -120,9 +114,7 @@ export function TicketAIAnalysis({
             <Sparkles size={16} />
           )}
 
-          {analysis.isPending
-            ? "Analisando..."
-            : "Analisar com IA"}
+          {analysis.isPending ? "Analisando..." : "Analisar com IA"}
         </button>
       </div>
 
@@ -155,9 +147,7 @@ export function TicketAIAnalysis({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg bg-slate-800/60 p-4">
-              <p className="text-xs text-slate-400">
-                Prioridade sugerida
-              </p>
+              <p className="text-xs text-slate-400">Prioridade sugerida</p>
 
               <p className="mt-2 font-semibold text-white">
                 {priorityLabels[result.suggested_priority]}
@@ -165,9 +155,7 @@ export function TicketAIAnalysis({
             </div>
 
             <div className="rounded-lg bg-slate-800/60 p-4">
-              <p className="text-xs text-slate-400">
-                Categoria sugerida
-              </p>
+              <p className="text-xs text-slate-400">Categoria sugerida</p>
 
               <p className="mt-2 font-semibold text-white">
                 {categoryLabels[result.suggested_category]}
@@ -176,9 +164,7 @@ export function TicketAIAnalysis({
           </div>
 
           <div className="rounded-lg bg-slate-800/60 p-4">
-            <p className="text-xs font-medium text-slate-400">
-              Justificativa
-            </p>
+            <p className="text-xs font-medium text-slate-400">Justificativa</p>
 
             <p className="mt-2 whitespace-pre-wrap wrap-break-word text-sm leading-6 text-slate-200">
               {result.reason}
@@ -192,13 +178,13 @@ export function TicketAIAnalysis({
               disabled={!canApplyPriority}
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {updateTicket.isPending ? (
+              {applyAIAnalysis.isPending ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
                 <CheckCircle2 size={16} />
               )}
 
-              {updateTicket.isPending
+              {applyAIAnalysis.isPending
                 ? "Aplicando prioridade..."
                 : "Aplicar prioridade sugerida"}
             </button>
@@ -211,15 +197,11 @@ export function TicketAIAnalysis({
             >
               <CheckCircle2 size={18} className="shrink-0" />
 
-              <p>
-                {updateTicket.isSuccess
-                  ? "Prioridade aplicada com sucesso."
-                  : "O chamado já possui a prioridade sugerida pela IA."}
-              </p>
+              <p>Prioridade aplicada com sucesso.</p>
             </div>
           )}
 
-          {updateTicket.isError && (
+          {applyAIAnalysis.isError && (
             <div
               role="alert"
               className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400"
@@ -227,16 +209,18 @@ export function TicketAIAnalysis({
               <AlertCircle size={18} className="shrink-0" />
 
               <p>
-                Não foi possível aplicar a prioridade sugerida.
-                Tente novamente.
+                {applyErrorStatus === 409
+                  ? "Esta análise já foi aplicada anteriormente."
+                  : applyErrorStatus === 403
+                    ? "Você não possui permissão para aplicar esta análise."
+                    : "Não foi possível aplicar a prioridade sugerida. Tente novamente."}
               </p>
             </div>
           )}
 
           <p className="text-xs text-slate-500">
-            A análise da IA é apenas uma sugestão.
-            A prioridade do chamado só será alterada
-            mediante uma ação autorizada do usuário.
+            A análise da IA é apenas uma sugestão. A prioridade do chamado só
+            será alterada mediante uma ação autorizada do usuário.
           </p>
         </div>
       )}

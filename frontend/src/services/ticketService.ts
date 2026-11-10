@@ -1,5 +1,9 @@
 import { api } from "@/services/api";
-import type { AIAnalysisResponse } from "@/types/ai.types";
+import type {
+  AIAnalysisApplyResponse,
+  AIAnalysisHistoryResponse,
+  AIAnalysisResponse,
+} from "@/types/ai.types";
 
 import type {
   Ticket,
@@ -57,6 +61,35 @@ export const ticketService = {
   async analyzeTicket(ticketId: string): Promise<AIAnalysisResponse> {
     const { data } = await api.post<AIAnalysisResponse>(
       `/tickets/${ticketId}/analyze`,
+    );
+
+    return data;
+  },
+
+  async getAIAnalysisHistory(
+    ticketId: string,
+    page = 1,
+    pageSize = 10,
+  ): Promise<AIAnalysisHistoryResponse> {
+    const { data } = await api.get<AIAnalysisHistoryResponse>(
+      `/tickets/${ticketId}/analyses`,
+      {
+        params: {
+          page,
+          page_size: pageSize,
+        },
+      },
+    );
+
+    return data;
+  },
+
+  async applyAIAnalysis(
+    ticketId: string,
+    analysisId: number,
+  ): Promise<AIAnalysisApplyResponse> {
+    const { data } = await api.post<AIAnalysisApplyResponse>(
+      `/tickets/${ticketId}/analyses/${analysisId}/apply`,
     );
 
     return data;

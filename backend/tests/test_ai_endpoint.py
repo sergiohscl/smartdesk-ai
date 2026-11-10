@@ -55,6 +55,14 @@ def configure_session(mock_session, user, ticket=None):
     ]
 
 
+def configure_analysis_id(mock_session, analysis_id=15):
+    def assign_analysis_id(analysis):
+        assert isinstance(analysis, AIAnalysis)
+        analysis.id = analysis_id
+
+    mock_session.add.side_effect = assign_analysis_id
+
+
 @pytest.fixture
 def mock_ai_service():
     service = MagicMock()
@@ -82,6 +90,7 @@ async def test_analyze_own_ticket_success(
     user = make_user()
     ticket = make_ticket(owner_id=user.id)
     configure_session(mock_session, user, ticket)
+    configure_analysis_id(mock_session)
 
     token = create_access_token(subject=str(user.id))
 
@@ -98,6 +107,7 @@ async def test_analyze_own_ticket_success(
     assert data['suggested_priority'] == 'high'
     assert data['suggested_category'] == 'hardware'
     assert data['reason'] == 'Possível falha física no computador.'
+    assert data['analysis_id'] == 15
 
     mock_ai_service.analyze_ticket.assert_awaited_once_with(
         title=ticket.title,
@@ -129,6 +139,7 @@ async def test_analyze_own_ticket_success(
 
     # A prioridade original deve permanecer inalterada.
     assert ticket.priority == TicketPriority.MEDIUM
+    assert saved_analysis.id == data['analysis_id']
 
 
 @pytest.mark.asyncio
@@ -145,6 +156,7 @@ async def test_analyze_ticket_global_access(
     user = make_user(role=role)
     ticket = make_ticket(owner_id=99)
     configure_session(mock_session, user, ticket)
+    configure_analysis_id(mock_session)
 
     token = create_access_token(subject=str(user.id))
 
@@ -154,6 +166,9 @@ async def test_analyze_ticket_global_access(
     )
 
     assert response.status_code == 200
+    data = response.json()
+
+    assert data['analysis_id'] == 15
     mock_ai_service.analyze_ticket.assert_awaited_once()
 
 
@@ -274,6 +289,7 @@ async def test_analyze_ticket_other_user_allowed(
     ticket = make_ticket(owner_id=99, ticket_id=10)
 
     configure_session(mock_session, user, ticket)
+    configure_analysis_id(mock_session)
 
     token = create_access_token(subject=str(user.id))
 
@@ -290,6 +306,7 @@ async def test_analyze_ticket_other_user_allowed(
     assert data['suggested_priority'] == 'high'
     assert data['suggested_category'] == 'hardware'
     assert data['reason'] == 'Possível falha física no computador.'
+    assert data['analysis_id'] == 15
 
     mock_ai_service.analyze_ticket.assert_awaited_once_with(
         title=ticket.title,
@@ -334,6 +351,7 @@ async def test_analyze_ticket_other_user_allowed(
     assert saved_analysis.applied_at is None
     assert saved_analysis.applied_by_id is None
     assert ticket.priority == TicketPriority.MEDIUM
+    assert saved_analysis.id == data['analysis_id']
 
 
 @pytest.mark.asyncio

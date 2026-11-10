@@ -57,6 +57,7 @@ def test_ai_classification_rejects_extra_fields():
 @pytest.mark.parametrize('ticket_id', [0, -1])
 def test_ai_analysis_invalid_ticket_id(ticket_id):
     payload = {
+        'analysis_id': 15,
         'ticket_id': ticket_id,
         'suggested_priority': 'high',
         'suggested_category': 'network',
@@ -69,12 +70,28 @@ def test_ai_analysis_invalid_ticket_id(ticket_id):
 
 def test_ai_analysis_response_success():
     result = AIAnalysisResponse(
+        analysis_id=15,
         ticket_id=42,
         suggested_priority=TicketPriority.HIGH,
         suggested_category=AITicketCategory.NETWORK,
         reason='Falha de conexão.',
     )
 
+    assert result.analysis_id == 15
     assert result.ticket_id == 42
     assert result.suggested_priority == TicketPriority.HIGH
     assert result.suggested_category == AITicketCategory.NETWORK
+
+
+@pytest.mark.parametrize('analysis_id', [0, -1])
+def test_ai_analysis_invalid_analysis_id(analysis_id):
+    payload = {
+        'analysis_id': analysis_id,
+        'ticket_id': 42,
+        'suggested_priority': 'high',
+        'suggested_category': 'network',
+        'reason': 'Falha de conexão.',
+    }
+
+    with pytest.raises(ValidationError):
+        AIAnalysisResponse.model_validate(payload)

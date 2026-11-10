@@ -9,6 +9,7 @@ import { TicketPriorityBadge } from "@/app/components/TicketTable/TicketPriority
 import { TicketStatusBadge } from "@/app/components/TicketTable/TicketStatusBadge";
 import { DeleteTicketDialog } from "@/app/components/DeleteTicketDialog/DeleteTicketDialog";
 import { TicketAIAnalysis } from "@/app/components/TicketAIAnalysis/TicketAIAnalysis";
+import { TicketAIHistory } from "@/app/components/TicketAIHistory/TicketAIHistory";
 
 import { useDeleteTicket } from "@/hooks/useDeleteTicket";
 import { useTicket } from "@/hooks/useTickets";
@@ -235,7 +236,17 @@ export function TicketDetailsPage() {
             )}
 
             {!isEditing && (
-              <TicketAIAnalysis key={ticket.id} ticketId={ticket.id} />
+              <>
+                <TicketAIAnalysis
+                  key={`analysis-${ticket.id}`}
+                  ticketId={ticket.id}
+                />
+
+                <TicketAIHistory
+                  key={`history-${ticket.id}`}
+                  ticketId={ticket.id}
+                />
+              </>
             )}
 
             {isDeleteDialogOpen && canManage && (

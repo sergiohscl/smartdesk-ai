@@ -381,6 +381,7 @@ async def analyze_ticket(
         raise
 
     return AIAnalysisResponse(
+        analysis_id=analysis.id,
         ticket_id=ticket.id,
         **classification.model_dump(),
     )
