@@ -307,9 +307,6 @@ async def get_ticket_for_ai_analysis(
             detail='ID do chamado inválido.',
         )
 
-    # A análise de IA é uma operação de leitura.
-    # Qualquer usuário autenticado pode analisar
-    # um chamado existente, independentemente do proprietário.
     statement = select(Ticket).where(Ticket.id == ticket_id)
 
     result = await session.execute(statement)
@@ -319,6 +316,17 @@ async def get_ticket_for_ai_analysis(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Chamado não encontrado.',
+        )
+
+    # USER pode analisar apenas os próprios chamados.
+    # SUPPORT e ADMIN podem analisar qualquer chamado.
+    if (
+        current_user.role not in {UserRole.SUPPORT, UserRole.ADMIN}
+        and ticket.created_by_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail='Você não tem permissão para analisar este chamado.',
         )
 
     return ticket

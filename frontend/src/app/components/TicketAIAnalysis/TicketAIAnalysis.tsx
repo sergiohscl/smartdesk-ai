@@ -55,7 +55,7 @@ export function TicketAIAnalysis({ ticketId }: TicketAIAnalysisProps) {
     !applyAIAnalysis.isPending;
 
   function handleAnalyze() {
-    if (analysis.isPending || applyAIAnalysis.isPending) {
+    if (!canManage || analysis.isPending || applyAIAnalysis.isPending) {
       return;
     }
 
@@ -105,7 +105,11 @@ export function TicketAIAnalysis({ ticketId }: TicketAIAnalysisProps) {
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={analysis.isPending || applyAIAnalysis.isPending}
+          disabled={
+            !canManage ||
+            analysis.isPending ||
+            applyAIAnalysis.isPending
+          }
           className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {analysis.isPending ? (
@@ -117,6 +121,13 @@ export function TicketAIAnalysis({ ticketId }: TicketAIAnalysisProps) {
           {analysis.isPending ? "Analisando..." : "Analisar com IA"}
         </button>
       </div>
+
+      {ticket && !canManage && (
+        <p className="mt-4 text-sm text-amber-400">
+          Você pode visualizar este chamado, mas não possui permissão para
+          realizar análises com IA.
+        </p>
+      )}
 
       {analysis.isPending && (
         <p role="status" className="mt-5 text-sm text-slate-400">
