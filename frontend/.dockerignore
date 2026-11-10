@@ -1,0 +1,17 @@
+
+node_modules/
+dist/
+.tanstack/
+
+.env
+.env.*
+!.env.example
+
+.git/
+.gitignore
+
+*.log
+npm-debug.log*
+
+Dockerfile
+.dockerignore
