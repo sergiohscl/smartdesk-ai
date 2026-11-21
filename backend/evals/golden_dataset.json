@@ -1,0 +1,143 @@
+[
+  {
+    "id": "AI-EVAL-001",
+    "title": "Mouse USB não funciona",
+    "description": "O mouse de um computador administrativo parou de responder. O teclado funciona normalmente e existe outro mouse disponível. Apenas um usuário foi afetado.",
+    "expected_category": "hardware",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-002",
+    "title": "Sistema de vendas indisponível",
+    "description": "O sistema principal de vendas está indisponível para todas as filiais. Nenhuma venda pode ser registrada e não existe alternativa operacional. A operação está completamente interrompida.",
+    "expected_category": "software",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-EVAL-003",
+    "title": "Internet lenta em uma estação",
+    "description": "Um usuário relata lentidão na conexão de rede de seu computador. Outros computadores funcionam normalmente. O usuário consegue continuar trabalhando, mas algumas tarefas demoram mais.",
+    "expected_category": "network",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-004",
+    "title": "Usuário sem acesso ao sistema interno",
+    "description": "Um funcionário não consegue autenticar no sistema interno necessário para suas atividades. O problema afeta apenas sua conta, não existe alternativa disponível e suas tarefas estão interrompidas.",
+    "expected_category": "access",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-EVAL-005",
+    "title": "Solicitação de orientação sobre suporte",
+    "description": "Um funcionário deseja saber como consultar o horário de funcionamento da equipe de suporte técnico. Não existe falha em sistemas ou equipamentos.",
+    "expected_category": "other",
+    "expected_priority": "low"
+  },
+
+  {
+    "id": "AI-EVAL-006",
+    "title": "Impressora do setor financeiro não imprime",
+    "description": "A impressora principal do setor financeiro parou de funcionar. Cinco funcionários precisam imprimir documentos hoje, mas existe outra impressora disponível no mesmo andar.",
+    "expected_category": "hardware",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-EVAL-007",
+    "title": "Servidor físico apresenta falha de hardware",
+    "description": "O servidor físico responsável pelo sistema de faturamento apresenta falha em componentes de hardware. O sistema está indisponível para todos os funcionários e o faturamento está interrompido, sem equipamento reserva.",
+    "expected_category": "hardware",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-EVAL-008",
+    "title": "Monitor apresenta imagem intermitente",
+    "description": "O monitor de um funcionário apresenta pequenas falhas de imagem. O computador continua funcionando normalmente e existe um monitor reserva disponível.",
+    "expected_category": "hardware",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-009",
+    "title": "Erro ao exportar relatório",
+    "description": "O sistema apresenta erro ao exportar relatórios em PDF. A consulta dos dados funciona normalmente e existe a possibilidade de exportação em CSV. O problema afeta três usuários.",
+    "expected_category": "software",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-EVAL-010",
+    "title": "Aplicativo apresenta falha visual",
+    "description": "Um botão do aplicativo aparece desalinhado em uma tela secundária. Todas as funcionalidades continuam disponíveis e não existe impacto operacional.",
+    "expected_category": "software",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-011",
+    "title": "Sistema de estoque indisponível",
+    "description": "O sistema de controle de estoque está indisponível para todos os funcionários do depósito. As operações de entrada e saída de mercadorias estão interrompidas e não existe procedimento alternativo.",
+    "expected_category": "software",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-EVAL-012",
+    "title": "Rede corporativa indisponível",
+    "description": "A rede corporativa está completamente indisponível em todas as unidades. Nenhum funcionário consegue acessar os sistemas internos e as operações essenciais estão paralisadas.",
+    "expected_category": "network",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-EVAL-013",
+    "title": "Wi-Fi instável na sala de reuniões",
+    "description": "A conexão Wi-Fi apresenta quedas frequentes na sala de reuniões. O problema afeta aproximadamente dez funcionários, mas a conexão cabeada continua funcionando.",
+    "expected_category": "network",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-EVAL-014",
+    "title": "VPN indisponível para equipe remota",
+    "description": "A VPN corporativa está indisponível para toda a equipe remota. Aproximadamente 40 funcionários estão impossibilitados de acessar os sistemas internos e não existe alternativa de conexão.",
+    "expected_category": "network",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-EVAL-015",
+    "title": "Senha expirada",
+    "description": "Um funcionário precisa redefinir sua senha expirada. O acesso está temporariamente bloqueado, mas ele consegue realizar outras atividades enquanto aguarda o suporte.",
+    "expected_category": "access",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-016",
+    "title": "Equipe sem acesso ao sistema financeiro",
+    "description": "Todos os funcionários do departamento financeiro perderam acesso ao sistema necessário para processar pagamentos que vencem hoje. Não existe alternativa operacional e há risco de atraso significativo.",
+    "expected_category": "access",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-EVAL-017",
+    "title": "Acesso administrativo comprometido",
+    "description": "A equipe de segurança identificou uso não autorizado de uma conta administrativa com privilégios elevados. Há evidências de alterações indevidas em configurações críticas e o incidente continua ativo.",
+    "expected_category": "access",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-EVAL-018",
+    "title": "Solicitação de treinamento",
+    "description": "Um funcionário solicita informações sobre treinamentos disponíveis para utilização das ferramentas corporativas. Não existe falha técnica ou impacto operacional.",
+    "expected_category": "other",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-019",
+    "title": "Solicitação de documentação técnica",
+    "description": "A equipe de desenvolvimento solicita documentação sobre os procedimentos internos de implantação. A documentação será utilizada no planejamento de uma atividade futura, sem bloqueio atual.",
+    "expected_category": "other",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-EVAL-020",
+    "title": "Solicitação de orientação para novo processo",
+    "description": "Um gestor solicita orientações para organizar o atendimento de novos funcionários. A solicitação precisa ser respondida nesta semana, mas não existe interrupção dos serviços.",
+    "expected_category": "other",
+    "expected_priority": "low"
+  }
+]

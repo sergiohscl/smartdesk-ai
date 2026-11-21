@@ -1,0 +1,142 @@
+[
+  {
+    "id": "AI-IND-001",
+    "title": "Webcam apresenta imagem desfocada",
+    "description": "A webcam de um funcionário apresenta imagem desfocada em reuniões. O áudio funciona normalmente e ele pode utilizar outra estação disponível. Nenhuma atividade essencial está bloqueada.",
+    "expected_category": "hardware",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-IND-002",
+    "title": "Computador demora para iniciar",
+    "description": "Um computador leva aproximadamente oito minutos para iniciar. Após a inicialização, todos os aplicativos funcionam normalmente. Apenas um usuário foi afetado.",
+    "expected_category": "hardware",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-IND-003",
+    "title": "Atalho de aplicativo desapareceu",
+    "description": "O atalho de um aplicativo desapareceu da área de trabalho de um funcionário. O programa continua acessível pelo menu de aplicativos e não existe interrupção das atividades.",
+    "expected_category": "software",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-IND-004",
+    "title": "Solicitação de informação sobre equipamentos",
+    "description": "Um colaborador solicita informações sobre o procedimento para solicitar novos periféricos. Não existe defeito técnico ou atividade interrompida.",
+    "expected_category": "other",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-IND-005",
+    "title": "Notificação duplicada no sistema",
+    "description": "Um usuário recebe duas notificações para o mesmo evento. Os registros permanecem corretos e todas as operações podem ser realizadas normalmente.",
+    "expected_category": "software",
+    "expected_priority": "low"
+  },
+  {
+    "id": "AI-IND-006",
+    "title": "Leitores de código de barras apresentam falhas",
+    "description": "Três leitores de código de barras apresentam falhas intermitentes em um setor administrativo. Seis funcionários precisam repetir algumas leituras, mas o registro manual permanece disponível e o trabalho continua com atrasos moderados.",
+    "expected_category": "hardware",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-IND-007",
+    "title": "Aplicativo de despesas não anexa comprovantes",
+    "description": "O aplicativo de reembolso não permite anexar comprovantes para oito funcionários. Os pedidos podem ser registrados temporariamente por formulário alternativo, mas o processo exige trabalho manual adicional.",
+    "expected_category": "software",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-IND-008",
+    "title": "Conexão instável em laboratório",
+    "description": "A conexão de rede apresenta interrupções breves em um laboratório com doze usuários. As aplicações continuam acessíveis pela rede cabeada, mas a troca de conexão provoca atrasos frequentes.",
+    "expected_category": "network",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-IND-009",
+    "title": "Permissão de edição indisponível",
+    "description": "Quatro analistas perderam permissão de edição em documentos compartilhados necessários para suas tarefas diárias. Eles conseguem consultar os documentos e solicitar alterações por meio de um responsável, mas o processo ficou mais lento.",
+    "expected_category": "access",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-IND-010",
+    "title": "Terminal de atendimento apresenta lentidão",
+    "description": "Um terminal utilizado no atendimento presencial apresenta lentidão frequente. Os funcionários conseguem utilizar outro terminal no mesmo setor, mas há formação de pequenas filas e atrasos durante o expediente.",
+    "expected_category": "hardware",
+    "expected_priority": "medium"
+  },
+  {
+    "id": "AI-IND-011",
+    "title": "Sistema de agendamento falha durante horário de pico",
+    "description": "O sistema de agendamento apresenta erros frequentes durante o horário de maior movimento. Aproximadamente sessenta funcionários dependem da aplicação e muitos agendamentos não estão sendo concluídos. Existe um procedimento manual limitado, com acúmulo significativo de solicitações.",
+    "expected_category": "software",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-IND-012",
+    "title": "Conectividade comprometida em unidade regional",
+    "description": "Uma unidade regional perdeu a conexão principal com os sistemas corporativos. Cerca de oitenta funcionários estão com atividades importantes interrompidas. Uma conexão de contingência permite executar somente operações básicas.",
+    "expected_category": "network",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-IND-013",
+    "title": "Falha em equipamento de digitalização de documentos",
+    "description": "O equipamento de digitalização utilizado por um departamento jurídico parou de funcionar. Há grande volume de documentos com prazo de processamento até o final do expediente. Um equipamento alternativo de baixa capacidade está disponível, mas não consegue atender à demanda.",
+    "expected_category": "hardware",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-IND-014",
+    "title": "Equipe operacional perdeu acesso ao painel de produção",
+    "description": "Vinte operadores perderam acesso ao painel utilizado para acompanhar ordens de produção. O trabalho continua parcialmente por relatórios impressos, mas decisões operacionais importantes estão atrasadas e há risco de descumprimento de prazos hoje.",
+    "expected_category": "access",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-IND-015",
+    "title": "Falha no processamento de arquivos de integração",
+    "description": "A integração entre dois sistemas corporativos deixou de processar arquivos automaticamente. Centenas de registros estão acumulados e precisam ser conciliados ainda hoje. Existe processamento manual, mas sua capacidade é insuficiente para o volume atual.",
+    "expected_category": "software",
+    "expected_priority": "high"
+  },
+  {
+    "id": "AI-IND-016",
+    "title": "Plataforma de atendimento emergencial indisponível",
+    "description": "A plataforma responsável pelo registro e encaminhamento de solicitações emergenciais está completamente indisponível. Nenhuma solicitação pode ser processada e não existe procedimento alternativo. O atendimento essencial está paralisado.",
+    "expected_category": "software",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-IND-017",
+    "title": "Falha no equipamento central de controle industrial",
+    "description": "O equipamento físico central de controle de uma linha industrial apresentou falha. Toda a linha está parada, a produção essencial foi interrompida e não existe equipamento reserva nem procedimento alternativo.",
+    "expected_category": "hardware",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-IND-018",
+    "title": "Rede de comunicação de centro operacional indisponível",
+    "description": "A rede interna de um centro operacional está totalmente indisponível. Os sistemas essenciais de coordenação não podem ser acessados, todas as atividades centrais estão paralisadas e não há conexão de contingência.",
+    "expected_category": "network",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-IND-019",
+    "title": "Conta privilegiada utilizada para alterações não autorizadas",
+    "description": "A equipe de segurança confirmou o uso indevido de uma conta privilegiada. Configurações críticas de segurança foram alteradas, o acesso não autorizado permanece ativo e há risco imediato de comprometimento de outros sistemas.",
+    "expected_category": "access",
+    "expected_priority": "critical"
+  },
+  {
+    "id": "AI-IND-020",
+    "title": "Sistema de controle de acesso físico indisponível",
+    "description": "O sistema eletrônico que controla a entrada em uma instalação de segurança está completamente indisponível. Não é possível autorizar ou registrar acessos, a operação essencial de controle está paralisada e não existe procedimento alternativo.",
+    "expected_category": "software",
+    "expected_priority": "critical"
+  }
+]

@@ -8,7 +8,11 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError
 from app.core.settings import Settings
 from app.models.ticket import TicketPriority
 from app.schemas.ai import AIClassification, AITicketCategory
-from app.services.ai_service import AIService, AIServiceError
+from app.services.ai_service import (
+    CLASSIFICATION_INSTRUCTIONS,
+    AIService,
+    AIServiceError,
+)
 
 
 @pytest.fixture
@@ -59,6 +63,7 @@ async def test_ai_service_success(ai_service, ai_client):
     kwargs = ai_client.responses.parse.await_args.kwargs
 
     assert kwargs['model'] == 'test-model'
+    assert kwargs['instructions'] == CLASSIFICATION_INSTRUCTIONS
     assert kwargs['text_format'] is AIClassification
     assert kwargs['store'] is False
     assert kwargs['timeout'] == ai_service.settings.AI_TIMEOUT_SECONDS
@@ -298,3 +303,48 @@ async def test_ai_service_safe_http_status_logging(
     assert 'Sensitive provider response' not in caplog.text
     assert 'Título confidencial' not in caplog.text
     assert 'Descrição confidencial' not in caplog.text
+
+
+def test_classification_instructions_define_priorities():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    for priority in ('low', 'medium', 'high', 'critical'):
+        assert f'Use {priority} para' in instructions
+
+
+def test_classification_instructions_consider_impact():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    assert 'alcance' in instructions
+    assert 'interrupção' in instructions
+    assert 'alternativas' in instructions
+    assert 'urgência' in instructions
+
+
+def test_classification_instructions_avoid_priority_escalation():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    assert 'não determina automaticamente' in instructions
+    assert 'não presuma consequências adicionais' in instructions
+
+
+def test_classification_instructions_define_medium_with_alternative():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    assert 'funcionalidades relevantes degradadas' in instructions
+    assert 'vários usuários' in instructions
+    assert 'alternativa operacional' in instructions
+
+
+def test_classification_instructions_define_critical_operations():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    assert 'paralisação completa de operação essencial' in instructions
+    assert 'sem alternativa operacional viável' in instructions
+
+
+def test_classification_instructions_avoid_automatic_escalation():
+    instructions = CLASSIFICATION_INSTRUCTIONS
+
+    assert 'não determina automaticamente' in instructions
+    assert 'Não reduza a prioridade apenas' in instructions
