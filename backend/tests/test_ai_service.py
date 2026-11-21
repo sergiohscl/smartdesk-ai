@@ -104,9 +104,7 @@ async def test_ai_service_success_observability(
     assert 'model=test-model' in message
     assert 'prompt_version=v3' in message
     duration_field = next(
-        field
-        for field in message.split()
-        if field.startswith('duration_ms=')
+        field for field in message.split() if field.startswith('duration_ms=')
     )
 
     duration_ms = float(duration_field.split('=', 1)[1])
