@@ -70,6 +70,270 @@ async def test_ai_service_success(ai_service, ai_client):
 
 
 @pytest.mark.asyncio
+async def test_ai_service_success_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    classification = make_classification()
+
+    ai_client.responses.parse.return_value = SimpleNamespace(
+        output_parsed=classification,
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        result = await ai_service.analyze_ticket(
+            title='Título confidencial',
+            description='Descrição confidencial',
+        )
+
+    assert result == classification
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=success' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+    duration_field = next(
+        field
+        for field in message.split()
+        if field.startswith('duration_ms=')
+    )
+
+    duration_ms = float(duration_field.split('=', 1)[1])
+
+    assert duration_ms >= 0
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+    assert 'Falha de conectividade.' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_timeout_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    ai_client.responses.parse.side_effect = APITimeoutError(
+        request=MagicMock(),
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        with pytest.raises(
+            AIServiceError,
+            match='Tempo limite excedido',
+        ):
+            await ai_service.analyze_ticket(
+                title='Título confidencial',
+                description='Descrição confidencial',
+            )
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=error' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+    assert 'error_category=timeout' in message
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_connection_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    ai_client.responses.parse.side_effect = APIConnectionError(
+        request=MagicMock(),
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        with pytest.raises(
+            AIServiceError,
+            match='Não foi possível conectar',
+        ):
+            await ai_service.analyze_ticket(
+                title='Título confidencial',
+                description='Descrição confidencial',
+            )
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=error' in message
+    assert 'error_category=connection' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_api_status_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    request = httpx2.Request(
+        'POST',
+        'https://api.openai.com/v1/responses',
+    )
+
+    response = httpx2.Response(
+        status_code=429,
+        request=request,
+    )
+
+    ai_client.responses.parse.side_effect = APIStatusError(
+        'Sensitive provider response',
+        response=response,
+        body=None,
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        with pytest.raises(
+            AIServiceError,
+            match='O serviço de IA retornou um erro',
+        ):
+            await ai_service.analyze_ticket(
+                title='Título confidencial',
+                description='Descrição confidencial',
+            )
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=error' in message
+    assert 'error_category=api_status' in message
+    assert 'http_status=429' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+    assert 'Sensitive provider response' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_unexpected_error_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    ai_client.responses.parse.side_effect = RuntimeError(
+        'Sensitive provider details',
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        with pytest.raises(
+            AIServiceError,
+            match='Não foi possível analisar o chamado',
+        ):
+            await ai_service.analyze_ticket(
+                title='Título confidencial',
+                description='Descrição confidencial',
+            )
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=error' in message
+    assert 'error_category=unexpected' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+    assert 'Sensitive provider details' not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ai_service_invalid_response_observability(
+    ai_service,
+    ai_client,
+    caplog,
+):
+    ai_client.responses.parse.return_value = SimpleNamespace(
+        output_parsed=None,
+    )
+
+    with caplog.at_level('INFO', logger='uvicorn.error'):
+        with pytest.raises(
+            AIServiceError,
+            match='A IA não retornou uma classificação válida',
+        ):
+            await ai_service.analyze_ticket(
+                title='Título confidencial',
+                description='Descrição confidencial',
+            )
+
+    events = [
+        record
+        for record in caplog.records
+        if 'ai_classification_completed' in record.getMessage()
+    ]
+
+    assert len(events) == 1
+
+    message = events[0].getMessage()
+
+    assert 'outcome=error' in message
+    assert 'error_category=invalid_response' in message
+    assert 'duration_ms=' in message
+    assert 'model=test-model' in message
+    assert 'prompt_version=v3' in message
+
+    assert 'Título confidencial' not in caplog.text
+    assert 'Descrição confidencial' not in caplog.text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ('title', 'description'),
     [

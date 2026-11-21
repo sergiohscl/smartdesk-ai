@@ -12,7 +12,11 @@ from openai import AsyncOpenAI
 from app.core.settings import get_settings
 from app.models.ticket import TicketPriority
 from app.schemas.ai import AIClassification, AITicketCategory
-from app.services.ai_service import CLASSIFICATION_INSTRUCTIONS, AIService
+from app.services.ai_service import (
+    CLASSIFICATION_INSTRUCTIONS,
+    CLASSIFICATION_PROMPT_VERSION,
+    AIService,
+)
 from evals.report import serialize_report
 from evals.runner import EvaluationCase, evaluate_cases
 
@@ -160,7 +164,7 @@ async def run() -> None:
         dataset_version=(
             'golden-v1' if args.dataset == 'golden' else 'independent-v1'
         ),
-        prompt_version='v3',
+        prompt_version=CLASSIFICATION_PROMPT_VERSION,
     )
 
     data['mode'] = args.mode
