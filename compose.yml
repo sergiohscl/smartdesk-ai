@@ -1,5 +1,8 @@
-
 name: smartdesk-ai
+
+secrets:
+  METRICS_TOKEN:
+    file: ./monitoring/prometheus/secrets/metrics_token
 
 services:
   db:
@@ -49,6 +52,9 @@ services:
       db:
         condition: service_healthy
 
+    secrets:
+      - METRICS_TOKEN
+
     networks:
       - smartdesk_network
 
@@ -71,8 +77,37 @@ services:
     networks:
       - smartdesk_network
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+
+    group_add:
+      - "999"
+
+    ports:
+      - "127.0.0.1:9090:9090"
+
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+    secrets:
+      - source: METRICS_TOKEN
+        target: /etc/prometheus/secrets/metrics_token
+
+    depends_on:
+      - backend
+
+    networks:
+      - smartdesk_network
+
 volumes:
   postgres_data:
+  prometheus_data:
 
 networks:
   smartdesk_network:

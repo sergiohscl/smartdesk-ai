@@ -26,3 +26,6 @@ test-results/
 
 # Relatórios gerados pelas avaliações de IA
 /backend/evals/reports/
+
+# Monitoring secrets
+/monitoring/prometheus/secrets/
