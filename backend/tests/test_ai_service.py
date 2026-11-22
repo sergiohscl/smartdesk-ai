@@ -4,7 +4,9 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx2
 import pytest
 from openai import APIConnectionError, APIStatusError, APITimeoutError
+from prometheus_client import CollectorRegistry
 
+from app.core.ai_metrics import AIMetrics
 from app.core.settings import Settings
 from app.models.ticket import TicketPriority
 from app.schemas.ai import AIClassification, AITicketCategory
@@ -610,3 +612,184 @@ def test_classification_instructions_avoid_automatic_escalation():
 
     assert 'não determina automaticamente' in instructions
     assert 'Não reduza a prioridade apenas' in instructions
+
+
+@pytest.mark.asyncio
+async def test_ai_service_records_success_metrics(
+    ai_client,
+    ai_settings,
+):
+    registry = CollectorRegistry()
+    metrics = AIMetrics(registry=registry)
+
+    service = AIService(
+        client=ai_client,
+        settings=ai_settings,
+        metrics=metrics,
+    )
+
+    classification = make_classification()
+
+    ai_client.responses.parse.return_value = SimpleNamespace(
+        output_parsed=classification,
+    )
+
+    result = await service.analyze_ticket(
+        title='Sem internet',
+        description='Computador não conecta à rede.',
+    )
+
+    assert result == classification
+
+    labels = {
+        'outcome': 'success',
+        'model': 'test-model',
+        'prompt_version': 'v3',
+    }
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_classifications_total',
+            labels,
+        )
+        == 1
+    )
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_classification_duration_seconds_count',
+            labels,
+        )
+        == 1
+    )
+
+    duration = registry.get_sample_value(
+        'smartdesk_ai_classification_duration_seconds_sum',
+        labels,
+    )
+
+    assert duration is not None
+    assert duration >= 0
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_errors_total',
+            {
+                'error_category': 'timeout',
+                'model': 'test-model',
+                'prompt_version': 'v3',
+            },
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ('error_category', 'exception'),
+    [
+        (
+            'timeout',
+            APITimeoutError(request=MagicMock()),
+        ),
+        (
+            'connection',
+            APIConnectionError(request=MagicMock()),
+        ),
+        (
+            'api_status',
+            APIStatusError(
+                message='Erro simulado',
+                response=httpx2.Response(
+                    429,
+                    request=httpx2.Request(
+                        'POST',
+                        'https://example.com',
+                    ),
+                ),
+                body=None,
+            ),
+        ),
+        (
+            'unexpected',
+            RuntimeError('Erro simulado'),
+        ),
+        (
+            'invalid_response',
+            None,
+        ),
+    ],
+)
+async def test_ai_service_records_error_metrics(
+    ai_client,
+    ai_settings,
+    error_category,
+    exception,
+):
+    registry = CollectorRegistry()
+    metrics = AIMetrics(registry=registry)
+
+    service = AIService(
+        client=ai_client,
+        settings=ai_settings,
+        metrics=metrics,
+    )
+
+    if exception is None:
+        ai_client.responses.parse.return_value = SimpleNamespace(
+            output_parsed=None,
+        )
+    else:
+        ai_client.responses.parse.side_effect = exception
+
+    with pytest.raises(AIServiceError):
+        await service.analyze_ticket(
+            title='Falha simulada',
+            description='Descrição de teste',
+        )
+
+    labels = {
+        'outcome': 'error',
+        'model': 'test-model',
+        'prompt_version': 'v3',
+    }
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_classifications_total',
+            labels,
+        )
+        == 1
+    )
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_classification_duration_seconds_count',
+            labels,
+        )
+        == 1
+    )
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_errors_total',
+            {
+                'error_category': error_category,
+                'model': 'test-model',
+                'prompt_version': 'v3',
+            },
+        )
+        == 1
+    )
+
+    assert (
+        registry.get_sample_value(
+            'smartdesk_ai_classifications_total',
+            {
+                'outcome': 'success',
+                'model': 'test-model',
+                'prompt_version': 'v3',
+            },
+        )
+        is None
+    )

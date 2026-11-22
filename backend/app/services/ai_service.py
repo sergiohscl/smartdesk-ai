@@ -8,6 +8,7 @@ from openai import (
     AsyncOpenAI,
 )
 
+from app.core.ai_metrics import AIMetrics
 from app.core.settings import Settings
 from app.schemas.ai import AIClassification
 
@@ -61,9 +62,11 @@ class AIService:
         self,
         client: AsyncOpenAI,
         settings: Settings,
+        metrics: AIMetrics | None = None,
     ) -> None:
         self.client = client
         self.settings = settings
+        self.metrics = metrics
 
     def _log_completion(
         self,
@@ -74,6 +77,14 @@ class AIService:
         http_status: int | None = None,
     ) -> None:
         duration_ms = (time.perf_counter() - start_time) * 1000
+        if self.metrics is not None:
+            self.metrics.record_classification(
+                outcome=outcome,
+                duration_seconds=duration_ms / 1000,
+                model=self.settings.OPENAI_MODEL,
+                prompt_version=CLASSIFICATION_PROMPT_VERSION,
+                error_category=error_category,
+            )
 
         message = (
             'ai_classification_completed '

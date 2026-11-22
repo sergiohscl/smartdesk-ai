@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from openai import AsyncOpenAI
 
+from app.core.ai_metrics import ai_metrics
 from app.core.settings import Settings, get_settings
 from app.services.ai_service import AIService
 
@@ -24,4 +25,5 @@ async def get_ai_service(
         yield AIService(
             client=client,
             settings=settings,
+            metrics=ai_metrics,
         )

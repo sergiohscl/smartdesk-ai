@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     AI_MAX_DESCRIPTION_CHARS: int = 4000
     AI_DAILY_USER_LIMIT: int = 20
 
+    # Segurança do endpoint de monitoramento
+    METRICS_TOKEN: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
