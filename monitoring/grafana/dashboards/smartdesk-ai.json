@@ -1,0 +1,160 @@
+{
+  "uid": "smartdesk-ai-overview",
+  "title": "SmartDesk AI — Monitoramento",
+  "description": "Monitoramento do backend e das classificações de IA.",
+  "tags": ["smartdesk-ai", "prometheus", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Disponibilidade do Backend",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartdesk-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"smartdesk-ai-backend\"}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {"text": "OFFLINE", "color": "red", "index": 0},
+                "1": {"text": "ONLINE", "color": "green", "index": 1}
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Classificações da IA — Total",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartdesk-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(smartdesk_ai_classifications_total) or vector(0)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "Latência P95 da IA",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartdesk-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(smartdesk_ai_classification_duration_seconds_bucket[5m])))",
+          "legendFormat": "P95",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+    },
+    {
+      "id": 4,
+      "title": "Erros da IA — Total",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "smartdesk-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error_category) (smartdesk_ai_errors_total)",
+          "legendFormat": "{{error_category}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+    }
+  ]
+}

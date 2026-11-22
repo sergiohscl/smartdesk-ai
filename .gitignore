@@ -29,3 +29,6 @@ test-results/
 
 # Monitoring secrets
 /monitoring/prometheus/secrets/
+
+# Grafana secrets
+/monitoring/grafana/secrets/
