@@ -6,6 +6,8 @@ from app.api.v1.health import router as health_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.users import router as users_router
+from app.core.http_metrics import http_metrics
+from app.core.http_metrics_middleware import HTTPMetricsMiddleware
 
 app = FastAPI(
     title='SmartDesk AI API',
@@ -19,6 +21,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
+)
+
+app.add_middleware(
+    HTTPMetricsMiddleware,
+    metrics=http_metrics,
 )
 
 app.include_router(

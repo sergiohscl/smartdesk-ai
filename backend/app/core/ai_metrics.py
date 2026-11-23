@@ -1,5 +1,7 @@
 from prometheus_client import CollectorRegistry, Counter, Histogram
 
+from app.core.metrics_registry import metrics_registry
+
 
 class AIMetrics:
     """Coleta métricas operacionais das classificações da IA."""
@@ -71,4 +73,4 @@ class AIMetrics:
             ).inc()
 
 
-ai_metrics = AIMetrics()
+ai_metrics = AIMetrics(registry=metrics_registry)
