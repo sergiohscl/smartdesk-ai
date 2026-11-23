@@ -1,0 +1,125 @@
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: backend_indisponivel
+    interval: 15s
+
+    input_series:
+      - series: 'up{job="smartdesk-ai-backend",instance="backend:8000"}'
+        values: '1 1 0+0x12'
+
+    alert_rule_test:
+      - eval_time: 15s
+        alertname: SmartDeskBackendDown
+        exp_alerts: []
+
+      - eval_time: 2m
+        alertname: SmartDeskBackendDown
+        exp_alerts: []
+
+      - eval_time: 2m30s
+        alertname: SmartDeskBackendDown
+        exp_alerts:
+          - exp_labels:
+              job: smartdesk-ai-backend
+              instance: backend:8000
+              severity: critical
+            exp_annotations:
+              summary: "Backend SmartDesk AI indisponível"
+              description: "O Prometheus não consegue coletar métricas do backend há pelo menos 2 minutos."
+
+  - name: erros_http_5xx
+    interval: 15s
+
+    input_series:
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="200"}'
+        values: '0+15x48'
+
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="500"}'
+        values: '0+3x48'
+
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SmartDeskHighHTTP5xxRate
+        exp_alerts: []
+
+      - eval_time: 10m
+        alertname: SmartDeskHighHTTP5xxRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Taxa elevada de erros HTTP 5xx"
+              description: "Mais de 5% das requisições HTTP estão retornando erros 5xx."
+
+  - name: erros_http_5xx_trafego_insuficiente
+    interval: 15s
+
+    input_series:
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="200"}'
+        values: '0+0x48'
+
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="500"}'
+        values: '0+1x48'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SmartDeskHighHTTP5xxRate
+        exp_alerts: []
+
+  - name: latencia_http_elevada
+    interval: 15s
+
+    input_series:
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="200"}'
+        values: '0+15x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="0.5"}'
+        values: '0+0x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="1.0"}'
+        values: '0+0x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="2.5"}'
+        values: '0+15x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="+Inf"}'
+        values: '0+15x48'
+
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SmartDeskHighHTTPLatency
+        exp_alerts: []
+
+      - eval_time: 10m
+        alertname: SmartDeskHighHTTPLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Latência HTTP elevada"
+              description: "A latência P95 do backend está acima de 1 segundo."
+
+  - name: latencia_http_trafego_insuficiente
+    interval: 15s
+
+    input_series:
+      - series: 'smartdesk_http_requests_total{job="smartdesk-ai-backend",status_code="200"}'
+        values: '0+1x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="1.0"}'
+        values: '0+0x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="2.5"}'
+        values: '0+1x48'
+
+      - series: 'smartdesk_http_request_duration_seconds_bucket{job="smartdesk-ai-backend",le="+Inf"}'
+        values: '0+1x48'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SmartDeskHighHTTPLatency
+        exp_alerts: []

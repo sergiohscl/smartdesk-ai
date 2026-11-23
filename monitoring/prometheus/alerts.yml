@@ -1,0 +1,44 @@
+groups:
+  - name: smartdesk-ai-backend
+    rules:
+      - alert: SmartDeskBackendDown
+        expr: up{job="smartdesk-ai-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend SmartDesk AI indisponível"
+          description: "O Prometheus não consegue coletar métricas do backend há pelo menos 2 minutos."
+
+      - alert: SmartDeskHighHTTP5xxRate
+        expr: |
+          (
+            sum(rate(smartdesk_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(smartdesk_http_requests_total[5m]))
+          ) > 0.05
+          and
+          sum(rate(smartdesk_http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Taxa elevada de erros HTTP 5xx"
+          description: "Mais de 5% das requisições HTTP estão retornando erros 5xx."
+
+      - alert: SmartDeskHighHTTPLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(smartdesk_http_request_duration_seconds_bucket[5m])
+            )
+          ) > 1
+          and
+          sum(rate(smartdesk_http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latência HTTP elevada"
+          description: "A latência P95 do backend está acima de 1 segundo."
