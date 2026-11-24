@@ -9,6 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.chat_conversation import ChatConversation
+    from app.models.chat_generation_attempt import ChatGenerationAttempt
+    from app.models.chat_usage import ChatUsage
     from app.models.ticket import Ticket
 
 
@@ -74,4 +77,27 @@ class User(Base):
     tickets: Mapped[list['Ticket']] = relationship(
         'Ticket',
         back_populates='created_by',
+    )
+
+    chat_conversations: Mapped[list['ChatConversation']] = relationship(
+        'ChatConversation',
+        back_populates='user',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+    )
+
+    chat_usage: Mapped[list['ChatUsage']] = relationship(
+        'ChatUsage',
+        back_populates='user',
+        cascade='all, delete-orphan',
+        passive_deletes=True,
+    )
+
+    chat_generation_attempts: Mapped[list['ChatGenerationAttempt']] = (
+        relationship(
+            'ChatGenerationAttempt',
+            back_populates='user',
+            cascade='all, delete-orphan',
+            passive_deletes=True,
+        )
     )
