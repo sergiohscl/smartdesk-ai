@@ -22,7 +22,7 @@ O objetivo do projeto é evoluir um sistema tradicional de chamados para uma pla
 - 🤖 OpenAI API
 
 ### 🎨 Frontend
-- ⚛️ React 18
+- ⚛️ React 19
 - 📘 TypeScript
 - ⚡ Vite
 - 🎨 Tailwind CSS
@@ -38,6 +38,8 @@ O objetivo do projeto é evoluir um sistema tradicional de chamados para uma pla
 - Docker Hub (registro de imagens)
 - Nginx
 - PostgreSQL com volume persistente
+- Prometheus 3.5.0
+- Grafana 12.1.1
 
 ## ✨ Funcionalidades implementadas
 
@@ -76,6 +78,38 @@ Integração com modelos de linguagem da OpenAI para auxiliar na análise de cha
 - Limite diário configurável de utilização
 
 A IA atua como ferramenta de apoio à decisão. A aplicação da prioridade sugerida depende de uma ação autorizada do usuário.
+
+## 📊 Monitoramento e observabilidade
+
+O SmartDesk AI possui monitoramento local com
+Prometheus e Grafana.
+
+### Recursos implementados
+
+- Coleta de métricas HTTP.
+- Monitoramento de latência e erros HTTP 5xx.
+- Métricas de classificação por IA.
+- Endpoint de métricas protegido.
+- Dashboards provisionados automaticamente.
+- Central de monitoramento com RBAC.
+- Regras de alerta e testes automatizados.
+
+### Serviços locais
+
+| Serviço | Endereço |
+|---|---|
+| Frontend | http://localhost:8080 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+
+### Alertas configurados
+
+- Backend indisponível.
+- Taxa elevada de erros HTTP 5xx.
+- Latência elevada.
+
+O envio externo de notificações permanece fora
+da implementação atual.
 
 ## 👥 Controle de permissões
 
@@ -138,14 +172,20 @@ cd smartdesk-ai
 
 ### 2️⃣ Configurar as variáveis de ambiente
 
-Crie o arquivo `.env.docker` na raiz do projeto.
+Crie o arquivo `backend/.env` a partir do exemplo:
+
+```bash
+cp -n backend/.env.example backend/.env
+```
+
+Edite o arquivo e configure as credenciais locais.
 
 Exemplo de configuração:
 
 ```dotenv
 POSTGRES_PASSWORD=substitua_por_uma_senha_forte
 JWT_SECRET_KEY=substitua_por_um_segredo_aleatorio
-OPENAI_API_KEY=sua_chave_openai
+OPENAI_API_KEY=
 
 OPENAI_MODEL=gpt-6-luna
 AI_TIMEOUT_SECONDS=15
@@ -154,18 +194,85 @@ AI_MAX_DESCRIPTION_CHARS=4000
 AI_DAILY_USER_LIMIT=20
 ```
 
-> ⚠️ Nunca publique o arquivo `.env.docker` ou suas credenciais no GitHub. A senha do PostgreSQL deve ser compatível com uma URL de conexão.
+> ⚠️ Nunca publique o arquivo `backend/.env` ou suas credenciais no GitHub. A senha do PostgreSQL deve ser compatível com uma URL de conexão.
+
+### Política de utilização da inteligência artificial
+
+A variável `OPENAI_API_KEY` pode permanecer vazia
+quando a classificação de chamados não for utilizada.
+
+A integração existente com OpenAI pode gerar
+cobranças externas de API.
+
+O SmartDesk Assistant utilizará inferência local
+com Ollama, sem fallback automático para
+provedores pagos.
+
+A integração local ainda está em desenvolvimento.
+
+### Configurar os secrets de monitoramento
+
+Para uma nova instalação Linux, instale o OpenSSL
+caso ainda não esteja disponível.
+
+Crie os diretórios:
+
+```bash
+mkdir -p monitoring/prometheus/secrets
+mkdir -p monitoring/grafana/secrets
+```
+
+Gere os secrets sem sobrescrever arquivos existentes:
+
+```bash
+(
+    umask 077
+    set -C
+
+    if [ ! -e monitoring/prometheus/secrets/metrics_token ]; then
+        openssl rand -hex 32 > monitoring/prometheus/secrets/metrics_token
+    fi
+
+    if [ ! -e monitoring/grafana/secrets/admin_password ]; then
+        openssl rand -hex 24 > monitoring/grafana/secrets/admin_password
+    fi
+)
+```
+
+Configure os grupos e as permissões:
+
+```bash
+sudo chgrp 999 monitoring/prometheus/secrets/metrics_token
+sudo chgrp 472 monitoring/grafana/secrets/admin_password
+
+chmod 640 monitoring/prometheus/secrets/metrics_token
+chmod 640 monitoring/grafana/secrets/admin_password
+```
+
+O token de métricas é compartilhado entre o backend
+e o Prometheus.
+
+O secret do Grafana define a senha administrativa
+inicial de uma instalação nova.
+
+Não sobrescreva os secrets de uma instalação existente.
+
+Os arquivos de secrets são ignorados pelo Git.
+Nunca publique seus valores no repositório.
+
+Estas permissões consideram Docker convencional
+em Linux. Outros ambientes podem exigir adaptações.
 
 ### 3️⃣ Construir e iniciar os contêineres
 
 ```bash
-docker compose --env-file .env.docker -f compose.yml up -d --build
+docker compose --env-file backend/.env -f compose.yml up -d --build
 ```
 
 ### 4️⃣ Aplicar as migrações do banco de dados
 
 ```bash
-docker compose --env-file .env.docker -f compose.yml exec backend alembic upgrade head
+docker compose --env-file backend/.env -f compose.yml exec backend alembic upgrade head
 ```
 
 ### 5️⃣ Acessar a aplicação
@@ -173,18 +280,28 @@ docker compose --env-file .env.docker -f compose.yml exec backend alembic upgrad
 Após iniciar os serviços e aplicar as migrações:
 
 - 🌐 **Frontend:** http://localhost:8080
-- 📚 **Documentação da API:** http://localhost:8080/api/v1/docs (verificar a configuração da rota de documentação do FastAPI)
+- 📊 **Prometheus:** http://localhost:9090
+- 📈 **Grafana:** http://localhost:3000
+
+A documentação Swagger do FastAPI está disponível
+internamente no backend, na rota `/docs`.
+
+Na configuração Docker atual, essa rota não é
+exposta pelo Nginx.
+
+O acesso externo ao Swagger será tratado em uma
+etapa futura, sem expor desnecessariamente o backend.
 
 ### 6️⃣ Consultar os logs
 
 ```bash
-docker compose --env-file .env.docker -f compose.yml logs -f backend
+docker compose --env-file backend/.env -f compose.yml logs -f backend
 ```
 
 ### 7️⃣ Encerrar os serviços
 
 ```bash
-docker compose --env-file .env.docker -f compose.yml down
+docker compose --env-file backend/.env -f compose.yml down
 ```
 
 > 💾 O volume persistente do PostgreSQL é mantido. Não utilize `down -v` sem antes avaliar as consequências para os dados.
@@ -195,7 +312,7 @@ O projeto utiliza testes automatizados para verificar autenticação, gerenciame
 
 **Última validação registrada:**
 
-- ✅ 186 testes de backend aprovados
+- ✅ 351 testes de backend aprovados
 - ✅ Ruff sem erros
 - ✅ TypeScript sem erros
 - ✅ ESLint sem erros
@@ -251,43 +368,83 @@ smartdesk-ai/
 └── README.md
 ```
 
-## 🚀 Próxima atualização — SMARTDESK AI 2.0: evolução da IA
+## 🧠 Próxima atualização — SmartDesk Assistant
 
-### 🧠 Uma Inteligência Artificial mais avançada
+**Status: planejamento arquitetural e validação experimental.**
 
-A próxima grande atualização será focada em **melhorar a Inteligência Artificial do SMARTDESK AI**, tornando a análise dos chamados mais contextualizada, útil e inteligente.
+O SmartDesk Assistant será um chatbot especializado
+em suporte técnico, utilizando inferência local.
 
-### 🔮 Funcionalidades planejadas
+### Tecnologias selecionadas
 
-**🧠 1. Análise inteligente aprimorada**
+- Ollama.
+- Qwen 2.5 7B.
+- Quantização Q4_K_M.
+- FastAPI Server-Sent Events.
+- PostgreSQL.
+- React e TypeScript.
 
-Melhorar a capacidade da IA de compreender o problema relatado, identificar possíveis causas e produzir classificações mais precisas.
+### Funcionalidades planejadas
 
-**💡 2. Sugestões automáticas de solução**
+- Conversas privadas por usuário.
+- Histórico persistente.
+- Contexto conversacional.
+- Respostas em streaming.
+- Cancelamento e regeneração de respostas.
+- Renderização Markdown e blocos de código.
+- Sugestões de diagnóstico técnico.
+- Abertura de chamados mediante confirmação.
+- Limites de consumo e concorrência.
+- Segurança e observabilidade.
 
-A IA poderá sugerir procedimentos técnicos e possíveis soluções para os chamados.
+### Arquitetura planejada
 
-**📚 3. RAG — Recuperação de conhecimento**
+React → FastAPI → ChatService → AIProvider
+→ OllamaProvider → Ollama → Qwen 2.5 7B.
 
-Estudar a implementação de RAG (*Retrieval-Augmented Generation*) para permitir que a IA consulte uma base de conhecimento técnico antes de gerar recomendações.
+O chatbot ainda não está disponível na aplicação.
 
-**🤖 4. Agentes de IA**
+A classificação existente com OpenAI permanece
+independente e pode gerar cobranças de API.
 
-Investigar o uso de agentes para executar fluxos controlados de diagnóstico, consulta e recomendação.
+RAG, bancos vetoriais, MCP e agentes autônomos
+estão fora do escopo atual.
 
-**🔍 5. Identificação de chamados semelhantes**
+## 🧪 Benchmarks de IA local
 
-Utilizar técnicas de busca semântica para encontrar problemas já registrados e suas possíveis soluções.
+Foram avaliadas 150 inferências em 10 cenários
+de suporte técnico, com 3017 amostras de recursos.
 
-**📊 6. Análises mais explicativas**
+### Comparação em condição Warm
 
-Evoluir as justificativas da IA, oferecendo recomendações mais transparentes e úteis para as equipes de suporte.
+| Métrica | 3B V1 | 7B V1 | 7B V2 |
+|---|---:|---:|---:|
+| TTFT mediano (s) | 0.642 | 1.122 | 1.516 |
+| Tokens/s mediano | 16.45 | 5.85 | 6.39 |
+| Tempo total mediano (s) | 25.443 | 61.102 | 59.564 |
+| Pico amostrado de RAM (GiB) | 2.41 | 5.16 | 5.26 |
+| Truncamento | 30% | 10% | 0% |
 
-**💰 7. Otimização de custos**
+O Qwen 7B V2 foi selecionado para integração
+experimental através do Ollama.
 
-Melhorar o uso dos modelos de linguagem para reduzir chamadas desnecessárias e controlar o consumo da API.
+- Streaming válido: 30/30 na configuração V2.
+- Truncamento observado: 0%.
+- Cobranças externas de API: R$ 0,00.
+- Fallback para provedores pagos: desabilitado.
 
-> 🚧 **Em desenvolvimento:** essas funcionalidades fazem parte do planejamento e ainda não estão disponíveis na versão atual.
+A avaliação qualitativa permanece provisória.
+
+O modelo não está aprovado para utilização
+irrestrita em produção ou execução autônoma.
+
+A inferência local utiliza recursos computacionais
+e energia elétrica.
+
+### Documentação técnica
+
+- [ADR-001](docs/architecture/ADR-001-local-ai-provider.md)
+- [Relatório dos benchmarks](docs/benchmarks/llm-benchmark-summary.md)
 
 ## 🎯 Objetivo do projeto
 
@@ -300,7 +457,27 @@ O SMARTDESK AI também é um projeto de desenvolvimento e aprendizado prático, 
 - Testes automatizados
 - Docker e infraestrutura
 - Integração de LLMs
-- Evolução para RAG e agentes de IA
+- Observabilidade e monitoramento
+- Inferência local com Ollama
+- Desenvolvimento do SmartDesk Assistant
+- Possível evolução futura para RAG e agentes de IA
+
+## 📄 Licenciamento
+
+O código-fonte do SmartDesk AI é disponibilizado
+sob a Licença MIT.
+
+O modelo Qwen 2.5 7B utiliza a licença Apache 2.0.
+
+Os componentes externos permanecem sujeitos
+às suas respectivas licenças.
+
+- [Licença MIT](LICENSE)
+- [Licença Qwen](docs/licenses/QWEN-APACHE-2.0.txt)
+- [Third-Party Notices](THIRD_PARTY_NOTICES.md)
+
+Os pesos dos modelos não são distribuídos
+no repositório.
 
 ## 👨‍💻 Desenvolvedor
 
