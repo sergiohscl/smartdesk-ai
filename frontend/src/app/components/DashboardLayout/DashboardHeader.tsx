@@ -21,9 +21,11 @@ export function DashboardHeader({
   });
 
   const pageTitle =
-    pathname === "/tickets" || pathname.startsWith("/tickets/")
-      ? "Chamados"
-      : "Dashboard";
+    pathname === "/monitoring"
+      ? "Monitoramento"
+      : pathname === "/tickets" || pathname.startsWith("/tickets/")
+        ? "Chamados"
+        : "Dashboard";
 
   const handleLogout = async () => {
     logout();

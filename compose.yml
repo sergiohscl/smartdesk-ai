@@ -66,6 +66,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api/v1
+        VITE_GRAFANA_DASHBOARD_URL: "${VITE_GRAFANA_DASHBOARD_URL:-http://127.0.0.1:3000/d/smartdesk-ai-overview/smartdesk-ai-e28094-monitoramento?orgId=1&from=now-1h&to=now&timezone=browser&refresh=15s}"
 
     image: smartdesk-ai-frontend:dev
     restart: unless-stopped

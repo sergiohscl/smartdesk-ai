@@ -1,12 +1,28 @@
-import { LayoutDashboard, Ticket, X } from "lucide-react";
+import {
+  Activity,
+  LayoutDashboard,
+  Ticket,
+  X,
+} from "lucide-react";
+
 import { Link } from "@tanstack/react-router";
+
+import { useAuth } from "@/app/providers/AuthProvider";
+import { canAccessMonitoring } from "@/utils/monitoringPermissions";
 
 interface DashboardSidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
+export function DashboardSidebar({
+  isOpen,
+  onClose,
+}: DashboardSidebarProps) {
+  const { user } = useAuth();
+
+  const showMonitoring = canAccessMonitoring(user);
+
   return (
     <>
       {isOpen && (
@@ -42,7 +58,10 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
           </button>
         </div>
 
-        <nav aria-label="Navegação principal" className="space-y-2 p-4">
+        <nav
+          aria-label="Navegação principal"
+          className="space-y-2 p-4"
+        >
           <Link
             to="/"
             activeOptions={{ exact: true }}
@@ -67,6 +86,21 @@ export function DashboardSidebar({ isOpen, onClose }: DashboardSidebarProps) {
             <Ticket size={20} />
             Chamados
           </Link>
+
+          {showMonitoring && (
+            <Link
+              to="/monitoring"
+              activeOptions={{ exact: true }}
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              activeProps={{
+                className: "bg-blue-600 text-white",
+              }}
+            >
+              <Activity size={20} />
+              Monitoramento
+            </Link>
+          )}
         </nav>
       </aside>
     </>
