@@ -14,6 +14,7 @@ from app.api.v1.chat_http_errors import (
     CHAT_DOMAIN_ERRORS,
     chat_http_exception,
 )
+from app.api.v1.chat_security import ChatSecureRoute
 from app.api.v1.chat_sse import create_sse_response
 from app.core.chat_dependencies import ChatServiceDep
 from app.core.dependencies import get_current_user
@@ -33,6 +34,7 @@ from app.schemas.chat import (
 router = APIRouter(
     prefix='/chat',
     tags=['Chat'],
+    route_class=ChatSecureRoute,
 )
 
 CurrentUserDep = Annotated[
