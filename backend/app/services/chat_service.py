@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import aclosing
 from datetime import UTC, datetime, time, timedelta
 
-from anyio import move_on_after
+from anyio import fail_after, move_on_after
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,7 @@ from app.schemas.chat import (
     ChatResponseCancelledEvent,
     ChatResponseCompletedEvent,
     ChatResponseDeltaEvent,
+    ChatResponseErrorEvent,
     ChatResponseFailedEvent,
     ChatResponseTruncatedEvent,
     ChatStreamErrorCode,
@@ -50,6 +51,9 @@ from app.services.chat_generation import (
 )
 from app.services.chat_generation_finalize import (
     ChatGenerationFinalizer,
+)
+from app.services.chat_generation_recovery import (
+    ChatGenerationRecovery,
 )
 from app.services.chat_generation_stream import (
     GenerationResult,
@@ -72,6 +76,7 @@ class ChatService:
         self._provider = provider
         self._context = ChatContext(settings)
         self._finalizer = ChatGenerationFinalizer(session)
+        self._recovery = ChatGenerationRecovery(session)
         self._generation = ChatGeneration(
             session,
             settings,
@@ -140,12 +145,33 @@ class ChatService:
         user_id: int,
         conversation_id: int,
     ) -> ChatConversationPublic:
-        """Return an owned conversation."""
+        """Return an owned conversation and recover expired generations."""
 
         conversation = await self._get_owned_conversation(
             user_id=user_id,
             conversation_id=conversation_id,
         )
+
+        now = datetime.now(UTC)
+
+        if (
+            conversation.generation_status == ChatGenerationStatus.GENERATING
+            and conversation.generation_expires_at is not None
+            and conversation.generation_expires_at <= now
+        ):
+            try:
+                await self._recovery.recover_owned_conversation(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    now=now,
+                )
+
+                await self._session.commit()
+            except BaseException:
+                await self._session.rollback()
+                raise
+
+            await self._session.refresh(conversation)
 
         return ChatConversationPublic.model_validate(
             conversation,
@@ -503,6 +529,50 @@ class ChatService:
                 'Could not finalize disconnected chat generation.',
             )
 
+    async def abort_unstarted_generation(
+        self,
+        prepared: PreparedGeneration,
+    ) -> None:
+        """Cancel a reserved generation that never started streaming."""
+
+        await self._finalize_disconnected_generation(
+            prepared,
+            GenerationResult(),
+        )
+
+    async def _finalize_stream_generation(
+        self,
+        prepared: PreparedGeneration,
+        result: GenerationResult,
+    ) -> ChatStreamEvent:
+        try:
+            with fail_after(5, shield=True):
+                message = await self._finalizer.finalize(
+                    prepared=prepared,
+                    result=result,
+                )
+        except ChatGenerationConflictError:
+            error_code = ChatStreamErrorCode.GENERATION_CONFLICT
+        except Exception:
+            logging.getLogger(__name__).warning(
+                'Chat generation persistence failed.',
+            )
+            error_code = ChatStreamErrorCode.PERSISTENCE_ERROR
+        else:
+            return self._build_terminal_event(
+                prepared,
+                message,
+                result,
+            )
+
+        return ChatResponseErrorEvent(
+            type='response.error',
+            conversation_id=prepared.conversation_id,
+            generation_id=prepared.generation_id,
+            assistant_message_id=prepared.assistant_message_id,
+            error_code=error_code,
+        )
+
     async def stream_generation(
         self,
         prepared: PreparedGeneration,
@@ -533,14 +603,8 @@ class ChatService:
             )
             raise
 
-        message = await self._finalizer.finalize(
-            prepared=prepared,
-            result=result,
-        )
-
-        yield self._build_terminal_event(
+        yield await self._finalize_stream_generation(
             prepared,
-            message,
             result,
         )
 

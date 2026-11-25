@@ -198,3 +198,53 @@ async def test_recover_orphan_attempts(
 
     session.scalar.assert_not_awaited()
     session.commit.assert_not_awaited()
+
+
+async def test_recover_owned_expired_conversation(
+    recovery,
+    session,
+    expired_conversation,
+):
+    now = datetime.now(UTC)
+    generation_id = expired_conversation.generation_id
+
+    session.scalar.side_effect = [
+        expired_conversation,
+        11,
+        generation_id,
+    ]
+
+    recovered = await recovery.recover_owned_conversation(
+        user_id=1,
+        conversation_id=1,
+        now=now,
+    )
+
+    assert recovered is True
+    assert expired_conversation.generation_status == (
+        ChatGenerationStatus.IDLE
+    )
+    assert expired_conversation.generation_id is None
+    assert expired_conversation.generation_expires_at is None
+
+    session.flush.assert_awaited_once()
+    session.commit.assert_not_awaited()
+
+
+async def test_recover_owned_conversation_without_match(
+    recovery,
+    session,
+):
+    session.scalar.return_value = None
+
+    recovered = await recovery.recover_owned_conversation(
+        user_id=1,
+        conversation_id=1,
+        now=datetime.now(UTC),
+    )
+
+    assert recovered is False
+
+    session.scalar.assert_awaited_once()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()

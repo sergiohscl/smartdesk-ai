@@ -331,6 +331,8 @@ class ChatStreamErrorCode(str, Enum):
     INVALID_PROVIDER_RESPONSE = 'INVALID_PROVIDER_RESPONSE'
     STREAM_INTERRUPTED = 'STREAM_INTERRUPTED'
     INTERNAL_ERROR = 'INTERNAL_ERROR'
+    PERSISTENCE_ERROR = 'PERSISTENCE_ERROR'
+    GENERATION_CONFLICT = 'GENERATION_CONFLICT'
 
 
 class ChatStreamEventBase(BaseModel):
@@ -445,12 +447,21 @@ class ChatResponseTruncatedEvent(ChatTerminalEventBase):
         return self
 
 
+class ChatResponseErrorEvent(ChatStreamEventBase):
+    type: Literal['response.error']
+    error_code: Literal[
+        ChatStreamErrorCode.PERSISTENCE_ERROR,
+        ChatStreamErrorCode.GENERATION_CONFLICT,
+    ]
+
+
 ChatStreamEvent = Annotated[
     ChatMessageCreatedEvent
     | ChatResponseDeltaEvent
     | ChatResponseCompletedEvent
     | ChatResponseCancelledEvent
     | ChatResponseFailedEvent
-    | ChatResponseTruncatedEvent,
+    | ChatResponseTruncatedEvent
+    | ChatResponseErrorEvent,
     Field(discriminator='type'),
 ]

@@ -145,6 +145,42 @@ class ChatGenerationRecovery:
 
         return len(result.all())
 
+    async def recover_owned_conversation(
+        self,
+        *,
+        user_id: int,
+        conversation_id: int,
+        now: datetime,
+    ) -> bool:
+        """Recover one expired conversation owned by the user."""
+
+        statement = (
+            select(ChatConversation)
+            .where(
+                ChatConversation.id == conversation_id,
+                ChatConversation.user_id == user_id,
+                ChatConversation.generation_status
+                == ChatGenerationStatus.GENERATING,
+                ChatConversation.generation_expires_at <= now,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+        conversation = await self._session.scalar(statement)
+
+        if conversation is None:
+            return False
+
+        await self._expire_message(conversation, now)
+        await self._expire_attempt(conversation, now)
+
+        self._release_conversation(conversation, now)
+
+        await self._session.flush()
+
+        return True
+
     async def recover_expired(
         self,
         now: datetime,

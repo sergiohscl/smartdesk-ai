@@ -3,11 +3,10 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import aclosing
 from dataclasses import dataclass, field
 
-from anyio import CancelScope
-
 from app.models.chat_message import ChatMessageStatus
 from app.schemas.chat import ChatStreamErrorCode
 from app.services.chat_errors import map_chat_error
+from app.services.chat_provider_stream import ProviderStream
 from app.services.providers.base import (
     AIProvider,
     ProviderCompletion,
@@ -91,35 +90,27 @@ class GenerationCancelled(Exception):
 
 
 async def _next_event(
-    events: AsyncIterator[ProviderEvent],
+    stream: ProviderStream,
     cancellation_check: Callable[[], Awaitable[bool]] | None,
 ) -> ProviderEvent | None:
-    if cancellation_check is None:
-        return await anext(events, None)
+    if cancellation_check is not None:
+        if await cancellation_check():
+            raise GenerationCancelled
 
-    if await cancellation_check():
-        raise GenerationCancelled
+    task = stream.next_event()
 
-    task = asyncio.ensure_future(anext(events, None))
+    while True:
+        done, _ = await asyncio.wait(
+            {task},
+            timeout=CANCELLATION_POLL_SECONDS,
+        )
 
-    try:
-        while True:
-            done, _ = await asyncio.wait(
-                {task},
-                timeout=CANCELLATION_POLL_SECONDS,
-            )
+        if done:
+            return task.result()
 
-            if done:
-                return task.result()
-
+        if cancellation_check is not None:
             if await cancellation_check():
                 raise GenerationCancelled
-    finally:
-        if not task.done():
-            task.cancel()
-
-        with CancelScope(shield=True):
-            await asyncio.gather(task, return_exceptions=True)
 
 
 async def _consume_events(
@@ -130,14 +121,16 @@ async def _consume_events(
     deadline: float,
     cancellation_check: Callable[[], Awaitable[bool]] | None,
 ) -> AsyncIterator[str]:
-    async with aclosing(provider.stream(request)) as events:
+    stream = ProviderStream(provider.stream(request))
+
+    try:
         while True:
             if asyncio.get_running_loop().time() >= deadline:
                 raise TimeoutError
 
             async with asyncio.timeout_at(deadline):
                 event = await _next_event(
-                    events,
+                    stream,
                     cancellation_check,
                 )
 
@@ -156,6 +149,9 @@ async def _consume_events(
                 raise ProviderError(
                     ProviderErrorCode.INVALID_PROVIDER_RESPONSE,
                 )
+
+    finally:
+        await stream.close()
 
 
 async def consume_generation(

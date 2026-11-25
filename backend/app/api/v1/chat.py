@@ -8,11 +8,13 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.chat_http_errors import (
     CHAT_DOMAIN_ERRORS,
     chat_http_exception,
 )
+from app.api.v1.chat_sse import create_sse_response
 from app.core.chat_dependencies import ChatServiceDep
 from app.core.dependencies import get_current_user
 from app.models.user import User
@@ -23,6 +25,7 @@ from app.schemas.chat import (
     ChatConversationListResponse,
     ChatConversationPublic,
     ChatConversationUpdate,
+    ChatMessageCreate,
     ChatMessageListResponse,
     ChatUsageResponse,
 )
@@ -38,6 +41,11 @@ CurrentUserDep = Annotated[
 ]
 
 ConversationId = Annotated[
+    int,
+    Path(ge=1, le=2_147_483_647),
+]
+
+MessageId = Annotated[
     int,
     Path(ge=1, le=2_147_483_647),
 ]
@@ -226,3 +234,81 @@ async def cancel_generation(
         )
     except CHAT_DOMAIN_ERRORS as error:
         raise chat_http_exception(error) from None
+
+
+@router.post(
+    '/conversations/{conversation_id}/messages',
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            'description': 'Chat generation event stream.',
+            'content': {
+                'text/event-stream': {
+                    'schema': {'type': 'string'},
+                },
+            },
+        },
+    },
+)
+async def send_message(
+    conversation_id: ConversationId,
+    data: ChatMessageCreate,
+    current_user: CurrentUserDep,
+    service: ChatServiceDep,
+) -> StreamingResponse:
+    """Send a message and stream the assistant response."""
+
+    try:
+        prepared = await service.prepare_generation(
+            user_id=current_user.id,
+            conversation_id=conversation_id,
+            data=data,
+        )
+    except CHAT_DOMAIN_ERRORS as error:
+        raise chat_http_exception(error) from None
+
+    return create_sse_response(
+        service.stream_generation(prepared),
+        on_unstarted=lambda: service.abort_unstarted_generation(
+            prepared,
+        ),
+    )
+
+
+@router.post(
+    '/conversations/{conversation_id}/messages/{message_id}/regenerate',
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            'description': 'Chat regeneration event stream.',
+            'content': {
+                'text/event-stream': {
+                    'schema': {'type': 'string'},
+                },
+            },
+        },
+    },
+)
+async def regenerate_message(
+    conversation_id: ConversationId,
+    message_id: MessageId,
+    current_user: CurrentUserDep,
+    service: ChatServiceDep,
+) -> StreamingResponse:
+    """Regenerate the latest eligible assistant response."""
+
+    try:
+        prepared = await service.prepare_regeneration(
+            user_id=current_user.id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+        )
+    except CHAT_DOMAIN_ERRORS as error:
+        raise chat_http_exception(error) from None
+
+    return create_sse_response(
+        service.stream_generation(prepared),
+        on_unstarted=lambda: service.abort_unstarted_generation(
+            prepared,
+        ),
+    )

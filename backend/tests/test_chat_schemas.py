@@ -2731,9 +2731,10 @@ def test_chat_stream_event_json_schema(
         'response.cancelled',
         'response.failed',
         'response.truncated',
+        'response.error',
     }
 
-    assert len(schema['oneOf']) == 6
+    assert len(schema['oneOf']) == len(schema['discriminator']['mapping'])
 
 
 @pytest.mark.parametrize(

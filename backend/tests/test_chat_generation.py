@@ -313,8 +313,10 @@ async def test_generation_conflict(
     provider.stream.side_effect = stream
     session.scalar.return_value = None
 
-    with pytest.raises(ChatGenerationConflictError):
-        await collect_events(service, prepared)
+    events = await collect_events(service, prepared)
+
+    assert events[-1].type == 'response.error'
+    assert events[-1].error_code == (ChatStreamErrorCode.GENERATION_CONFLICT)
 
     session.rollback.assert_awaited()
     session.commit.assert_not_awaited()
@@ -338,21 +340,23 @@ async def test_generation_commit_failure(
     provider.stream.side_effect = stream
     session.commit.side_effect = RuntimeError('Commit failed.')
 
-    events = []
-
-    async def consume():
-        async for event in service.stream_generation(prepared):
-            events.append(event)
-
-    with pytest.raises(RuntimeError, match='Commit failed'):
-        await consume()
+    events = await collect_events(service, prepared)
 
     assert [event.type for event in events] == [
         'message.created',
         'response.delta',
+        'response.error',
     ]
 
+    assert events[-1].error_code == (ChatStreamErrorCode.PERSISTENCE_ERROR)
+
+    payload = events[-1].model_dump_json()
+
+    assert 'Commit failed' not in payload
+    assert 'message' not in events[-1].model_dump()
+
     session.rollback.assert_awaited()
+    session.commit.assert_awaited_once()
 
 
 async def test_prepare_generation(
@@ -896,4 +900,30 @@ async def test_cancelled_regeneration_preserves_original(
     assert persistence[1].is_active is False
     assert persistence[1].status == ChatMessageStatus.CANCELLED
 
+    session.commit.assert_awaited_once()
+
+
+async def test_abort_unstarted_generation(
+    service,
+    session,
+    provider,
+    prepared,
+    persistence,
+):
+    await service.abort_unstarted_generation(
+        prepared,
+    )
+
+    conversation, message, attempt = persistence
+
+    assert message.status == ChatMessageStatus.CANCELLED
+    assert not message.content
+    assert message.is_active is False
+
+    assert attempt.status == ChatGenerationAttemptStatus.CANCELLED
+
+    assert conversation.generation_status == ChatGenerationStatus.IDLE
+    assert conversation.generation_id is None
+
+    provider.stream.assert_not_called()
     session.commit.assert_awaited_once()
