@@ -1,6 +1,7 @@
 import {
   Activity,
   LayoutDashboard,
+  Bot,
   Ticket,
   X,
 } from "lucide-react";
@@ -85,6 +86,18 @@ export function DashboardSidebar({
           >
             <Ticket size={20} />
             Chamados
+          </Link>
+
+          <Link
+            to="/chat"
+            onClick={onClose}
+            className="flex items-center gap-3 rounded-lg px-4 py-3 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+            activeProps={{
+              className: "bg-blue-600 text-white",
+            }}
+          >
+            <Bot size={20} />
+            Assistente IA
           </Link>
 
           {showMonitoring && (

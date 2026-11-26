@@ -21,7 +21,9 @@ export function DashboardHeader({
   });
 
   const pageTitle =
-    pathname === "/monitoring"
+    pathname === "/chat"
+      ? "Assistente IA"
+      : pathname === "/monitoring"
       ? "Monitoramento"
       : pathname === "/tickets" || pathname.startsWith("/tickets/")
         ? "Chamados"
